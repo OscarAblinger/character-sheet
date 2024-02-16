@@ -1,0 +1,15 @@
+{
+    "projectName": "CharacterSheet",
+    "languages": [{
+        "id": "character-sheet",
+        "grammar": "src/language/character-sheet.langium",
+        "fileExtensions": [".ttrpg"],
+        "textMate": {
+            "out": "syntaxes/character-sheet.tmLanguage.json"
+        },
+        "monarch": {
+            "out": "syntaxes/character-sheet.monarch.ts"
+        }
+    }],
+    "out": "src/language/generated"
+}
