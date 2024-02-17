@@ -40,8 +40,46 @@ fn from_tokenization_issue(ti: &TokenizationIssue) -> ParseError {
 }
 
 fn do_parse(tokens: &[Token]) -> ParseResult {
-    ParseResult {
-        is_ok: true,
-        errors: vec![],
+    let mut parser = Parser {
+        tokens,
+        position: 0,
+    };
+    parser.model();
+    parser.to_result()
+}
+
+struct Parser<'a> {
+    tokens: &'a[Token],
+    position: usize,
+}
+
+impl Parser<'_> {
+    fn to_result(&self) -> ParseResult {
+        ParseResult {
+            is_ok: true,
+            errors: vec![],
+        }
+    }
+
+    fn curr(&self) -> &Token {
+        &self.tokens[self.position]
+    }
+
+    fn next_non_ws(&mut self) {
+        self.position += 1;
+    }
+
+    // recursive descent
+    fn model(&mut self) {
+        let mut features = Vec::new();
+        features.push(self.feature());
+        
+        while let Token::Section(_) = self.curr() {
+            self.next_non_ws();
+            features.push(self.feature());
+        }
+    }
+
+    fn feature(&self) {
     }
 }
