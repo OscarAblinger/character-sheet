@@ -1,11 +1,11 @@
 use text_io::read;
 
-mod tokenizer;
-mod parser;
+use character_sheet_parser::parser;
+use character_sheet_parser::tokenizer;
 
+use parser::parse;
 use tokenizer::lex;
 use tokenizer::validate;
-use parser::parse;
 
 fn print_tokenize(text: &str) {
     let tokens = lex(text);
