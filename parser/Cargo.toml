@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 regex = "1.10.3"
 text_io = "0.1.12"
+thiserror = "1.0.57"
