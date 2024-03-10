@@ -1,42 +1,41 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AST {
     pub model: Model,
     pub references: Vec<Reference>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Scope {
-    Character, // essentially global scope
+    Character,       // essentially global scope
     Feature(String), // for referencing properties
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Reference {
     pub scope: Scope,
     pub name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Model {
     pub features: Vec<Feature>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Feature {
     pub name: String,
     pub description: String,
     pub modifiers: Vec<Modifier>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Modifier {
-    pub referencing: Reference, // todo: ownership?
+    pub referencing: Reference,
     pub value: ModifierValue,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum ModifierValue {
     Bonus(i32),
     Set(i32),
 }
-
