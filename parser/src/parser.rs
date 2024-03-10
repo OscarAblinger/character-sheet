@@ -10,6 +10,7 @@ use ast::Reference;
 use crate::tokenizer;
 use tokenizer::validate;
 use tokenizer::Token;
+use tokenizer::TokenType;
 use tokenizer::TokenizationIssue;
 
 #[derive(Debug)]
@@ -26,7 +27,7 @@ pub struct ParseFailure {
 
 #[derive(Debug, Error)]
 pub enum ParseError {
-    #[error("Unexpected token at offset {}: {} (expected: {})", .token.get_offset(), .token.get_string(), .expected)]
+    #[error("Unexpected token at offset {}: {} (expected: {})", .token.offset, .token.token_type.get_string(), .expected)]
     UnexpectedToken { token: Token, expected: String },
     #[error("Unexpected text at offset {}: {}", .0, .1)]
     UnexpectedText(i32, String),
@@ -79,16 +80,20 @@ impl Parser<'_> {
         self.tokens[self.position].clone()
     }
 
+    fn curr_t(&self) -> TokenType {
+        self.curr().token_type
+    }
+
     fn next_non_ws(&mut self) -> Token {
         if self.position == usize::MAX {
             self.position = 0;
             self.curr()
-        } else if matches!(self.curr(), Token::EndOfInput(..)) {
+        } else if matches!(self.curr_t(), TokenType::EndOfInput) {
             self.curr()
         } else {
             loop {
                 self.position += 1;
-                if !matches!(self.curr(), Token::Whitespace(..)) {
+                if !matches!(self.curr_t(), TokenType::Whitespace(_)) {
                     break;
                 }
             }
@@ -99,13 +104,13 @@ impl Parser<'_> {
     fn peek_non_ws(&mut self) -> Token {
         if self.position == usize::MAX {
             self.tokens[0].clone()
-        } else if matches!(self.curr(), Token::EndOfInput(..)) {
+        } else if self.curr_t() == TokenType::EndOfInput {
             self.curr()
         } else {
             let mut pos = self.position;
             loop {
                 pos += 1;
-                if !matches!(self.tokens[pos].clone(), Token::Whitespace(..)) {
+                if !matches!(self.tokens[pos].token_type, TokenType::Whitespace(_)) {
                     break;
                 }
             }
@@ -113,43 +118,42 @@ impl Parser<'_> {
         }
     }
 
-    fn expect(&mut self, token: &Token) -> Result<(), ParseFailure> {
-        self.expect_explicit(token, token.get_string())
+    fn expect(&mut self, token_type: &TokenType) -> Result<(), ParseFailure> {
+        self.expect_explicit(token_type, token_type.get_string())
     }
 
-    fn expect_explicit(&mut self, token: &Token, expected: String) -> Result<(), ParseFailure> {
-        if !self.next_non_ws().eq_text(token) {
-            Err(ParseFailure {
-                errors: vec![ParseError::UnexpectedToken {
-                    token: self.curr().clone(),
-                    expected,
-                }],
-            })
+    fn expect_explicit(&mut self, token_type: &TokenType, expected: String) -> Result<(), ParseFailure> {
+        if !(&self.next_non_ws().token_type == token_type) {
+            Err(self.fail(expected))
         } else {
             Ok(())
         }
     }
 
-    fn peek_expect(&mut self, token: &Token) -> Option<()> {
+    fn peek_expect(&mut self, token: &TokenType) -> Option<()> {
         let peeked = self.peek_non_ws();
-        if !peeked.eq_text(token) {
+        if !(&peeked.token_type == token) {
             None
         } else {
             Some(())
         }
     }
 
-    fn accept(&mut self, token: &Token, expected: String) -> Result<String, ParseFailure> {
+    fn accept(&mut self, token: &TokenType, expected: String) -> Result<String, ParseFailure> {
         let next = self.next_non_ws();
-        if !next.eq_type(token) {
-            Err(ParseFailure {
-                errors: vec![ParseError::UnexpectedToken {
-                    token: self.curr().clone(),
-                    expected,
-                }],
-            })
+        if !next.token_type.eq_type(token) {
+            Err(self.fail(expected))
         } else {
-            Ok(next.get_string())
+            Ok(next.token_type.get_string())
+        }
+    }
+
+    fn fail(&self, expected: String) -> ParseFailure {
+        ParseFailure {
+            errors: vec![ParseError::UnexpectedToken {
+                token: self.curr().clone(),
+                expected,
+            }],
         }
     }
 
@@ -158,7 +162,7 @@ impl Parser<'_> {
         let mut features = Vec::new();
         features.push(self.feature()?);
 
-        while let Token::Section(_) = self.curr() {
+        while let TokenType::Section = self.curr().token_type {
             self.next_non_ws();
             features.push(self.feature()?);
         }
@@ -167,39 +171,39 @@ impl Parser<'_> {
     }
 
     fn feature(&mut self) -> Result<Feature, ParseFailure> {
-        self.expect(&Token::Identifier(0, "Name".to_string()))?;
-        self.expect(&Token::Colon(0))?;
-        let name = self.accept(&Token::String(0, "".to_string()), "name".to_string())?;
-        self.expect(&Token::Semicolon(0))?;
+        self.expect(&TokenType::Identifier("Name".to_string()))?;
+        self.expect(&TokenType::Colon)?;
+        let name = self.accept(&TokenType::String("".to_string()), "name".to_string())?;
+        self.expect(&TokenType::Semicolon)?;
 
         let description = self
-            .peek_expect(&Token::Identifier(0, "Description".to_string()))
+            .peek_expect(&TokenType::Identifier("Description".to_string()))
             .map(|_| -> Result<String, ParseFailure> {
                 let _ = self.next_non_ws(); // skip "Description"
-                self.expect(&Token::Colon(0))?;
-                let desc = self.accept(&Token::String(0, "".to_string()), "string".to_string())?;
-                self.expect(&Token::Semicolon(0))?;
+                self.expect(&TokenType::Colon)?;
+                let desc = self.accept(&TokenType::String("".to_string()), "string".to_string())?;
+                self.expect(&TokenType::Semicolon)?;
 
                 Ok(desc)
             })
             .unwrap_or(Ok("".to_string()))?;
 
         let modifiers = self
-            .peek_expect(&Token::Identifier(0, "Modifiers".to_string()))
+            .peek_expect(&TokenType::Identifier("Modifiers".to_string()))
             .map(|_| -> Result<Vec<Modifier>, ParseFailure> {
                 let _ = self.next_non_ws(); // skip "Modifiers"
-                self.expect(&Token::Colon(0))?;
+                self.expect(&TokenType::Colon)?;
 
                 let mut modifiers: Vec<Modifier> = vec![];
                 loop {
-                    match self.peek_non_ws() {
-                        Token::Operator(_, o) if o == "+" || o == "-" => {
+                    match self.peek_non_ws().token_type {
+                        TokenType::Operator(o) if o == "+" || o == "-" => {
                             modifiers.push(self.modifier_short()?)
                         }
-                        Token::Identifier(_, b) if b == "bonus" => {
+                        TokenType::Identifier(b) if b == "bonus" => {
                             modifiers.push(self.modifier_long()?)
                         }
-                        Token::Identifier(_, s) if s == "set" => {
+                        TokenType::Identifier(s) if s == "set" => {
                             modifiers.push(self.modifier_set()?)
                         }
                         _ => break,
@@ -218,16 +222,16 @@ impl Parser<'_> {
     }
 
     fn modifier_short(&mut self) -> Result<Modifier, ParseFailure> {
-        let op = self.accept(&Token::Operator(0, "".to_string()), "+ or -".to_string())?;
+        let op = self.accept(&TokenType::Operator("".to_string()), "+ or -".to_string())?;
         let num: i32 = self
-            .accept(&Token::Number(0, "".to_string()), "number".to_string())?
+            .accept(&TokenType::Number(0), "number".to_string())?
             .parse()
             .unwrap();
         let iden = self.accept(
-            &Token::Identifier(0, "".to_string()),
+            &TokenType::Identifier("".to_string()),
             "identifier".to_string(),
         )?;
-        self.expect(&Token::Semicolon(0))?;
+        self.expect(&TokenType::Semicolon)?;
 
         let bonus = if op == "-" { -num } else { num };
 
@@ -241,17 +245,17 @@ impl Parser<'_> {
     }
 
     fn modifier_long(&mut self) -> Result<Modifier, ParseFailure> {
-        self.expect(&Token::Identifier(0, "bonus".to_string()))?;
-        self.expect(&Token::Identifier(0, "to".to_string()))?;
-        let iden = self.accept(&Token::Identifier(0, "".to_string()), "identifier".to_string())?;
-        self.expect(&Token::Identifier(0, "of".to_string()))?;
+        self.expect(&TokenType::Identifier("bonus".to_string()))?;
+        self.expect(&TokenType::Identifier("to".to_string()))?;
+        let iden = self.accept(&TokenType::Identifier("".to_string()), "identifier".to_string())?;
+        self.expect(&TokenType::Identifier("of".to_string()))?;
         let op: String;
-        match self.peek_non_ws() {
-            Token::Operator(_, o) if o == "+" || o == "-" => {
+        match self.peek_non_ws().token_type {
+            TokenType::Operator(o) if o == "+" || o == "-" => {
                 self.next_non_ws();
                 op = o;
             },
-            Token::Operator(..) => {
+            TokenType::Operator(..) => {
                 return Err(ParseFailure {
                     errors: vec![ParseError::UnexpectedToken {
                         token: self.curr().clone(),
@@ -265,10 +269,10 @@ impl Parser<'_> {
         }
 
         let num: i32 = self
-            .accept(&Token::Number(0, "".to_string()), "number".to_string())?
+            .accept(&TokenType::Number(0), "number".to_string())?
             .parse()
             .unwrap();
-        self.expect(&Token::Semicolon(0))?;
+        self.expect(&TokenType::Semicolon)?;
 
         let bonus = if op == "-" { -num } else { num };
 
@@ -282,16 +286,16 @@ impl Parser<'_> {
     }
 
     fn modifier_set(&mut self) -> Result<Modifier, ParseFailure> {
-        self.expect(&Token::Identifier(0, "set".to_string()))?;
-        let iden = self.accept(&Token::Identifier(0, "".to_string()), "identifier".to_string())?;
-        self.expect(&Token::Identifier(0, "to".to_string()))?;
+        self.expect(&TokenType::Identifier("set".to_string()))?;
+        let iden = self.accept(&TokenType::Identifier("".to_string()), "identifier".to_string())?;
+        self.expect(&TokenType::Identifier("to".to_string()))?;
         let op: String;
-        match self.peek_non_ws() {
-            Token::Operator(_, o) if o == "+" || o == "-" => {
+        match self.peek_non_ws().token_type {
+            TokenType::Operator(o) if o == "+" || o == "-" => {
                 self.next_non_ws();
                 op = o;
             },
-            Token::Operator(..) => {
+            TokenType::Operator(..) => {
                 return Err(ParseFailure {
                     errors: vec![ParseError::UnexpectedToken {
                         token: self.curr().clone(),
@@ -305,10 +309,10 @@ impl Parser<'_> {
         }
 
         let num: i32 = self
-            .accept(&Token::Number(0, "".to_string()), "number".to_string())?
+            .accept(&TokenType::Number(0), "number".to_string())?
             .parse()
             .unwrap();
-        self.expect(&Token::Semicolon(0))?;
+        self.expect(&TokenType::Semicolon)?;
 
         let bonus = if op == "-" { -num } else { num };
 
