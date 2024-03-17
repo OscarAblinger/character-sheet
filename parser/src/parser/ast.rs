@@ -36,6 +36,7 @@ pub struct Modifier {
 
 #[derive(Debug)]
 pub enum ModifierValue {
+    SimpleBonus(i32),
     Bonus(i32),
     Set(i32),
 }
