@@ -1,8 +1,9 @@
-mod ast;
+pub mod ast;
 
 use thiserror::Error;
 
 use ast::Feature;
+use ast::AST;
 use ast::Model;
 use ast::Modifier;
 use ast::Reference;
@@ -15,7 +16,7 @@ use tokenizer::TokenizationIssue;
 
 #[derive(Debug)]
 pub struct ParseSuccess {
-    pub model: Model,
+    pub ast: AST,
     pub warnings: Vec<String>, // todo
     pub infos: Vec<String>,    // todo
 }
@@ -63,7 +64,7 @@ fn do_parse(tokens: &[Token]) -> Result<ParseSuccess, ParseFailure> {
     };
     let model = parser.model()?;
     Ok(ParseSuccess {
-        model,
+        ast: AST { model, references: parser.references },
         infos: vec![],
         warnings: vec![],
     })
@@ -240,7 +241,7 @@ impl Parser<'_> {
                 name: iden,
                 scope: ast::Scope::Character,
             },
-            value: ast::ModifierValue::Bonus(bonus),
+            value: ast::ModifierValue::SimpleBonus(bonus),
         })
     }
 
