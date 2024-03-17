@@ -1,11 +1,9 @@
 mod ast;
+mod cast;
 
 use thiserror::Error;
 
-use ast::Feature;
-use ast::Model;
-use ast::Modifier;
-use ast::Reference;
+use cast::*;
 
 use crate::tokenizer;
 use tokenizer::validate;
