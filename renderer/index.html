@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <!-- temporary: using cdn, eventually should be served statically -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/papercss@1.9.2/dist/paper.min.css"
+    />
+    <title>Example Character Sheet</title>
+  </head>
+  <body>
+    <div class="paper container">
+      <h1 id="charname"></h1>
+      <p>Total Level: <span id="level"></span></p>
+      <label>Magic Level:
+        <input type="number" id="magiclevel" />
+      </label>
+      <label>Martial Level:
+        <input type="number" id="martiallevel" />
+      </label>
+
+      <div>
+	      <ul><li>List is todo</li></ul>
+      </div>
+
+      <div class="paper sheet">
+	<p id="summary"></p>
+      </div>
+    </div>
+    <script src="observable.js"></script>
+    <script src="index.js"></script>
+  </body>
+</html>
