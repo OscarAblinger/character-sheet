@@ -3,7 +3,7 @@ class AbstractPipe {
 		this.observers = []
 	}
 	getValue() { throw 'Not implemented' }
-	setValue(val) { throw 'Not implemented' }
+	updateValue(val) { throw 'Not implemented' }
 
 	subscribe(observer) { this.observers.push(observer) }
 	unsubscribe(observer) { this.observers = this.observers.filter(o => o !== observer) }
@@ -18,18 +18,18 @@ class Source extends AbstractPipe {
 	constructor(initialValue, onChangeTransformer) {
 		super()
 		if (onChangeTransformer == null)
-                        onChangeTransformer = v => v
+                        onChangeTransformer = (orig, changes) => Object.assign({}, orig, changes)
 
 		this.value = initialValue
 		this.onChangeTransformer = onChangeTransformer
 		this.notifySubscribers()
 	}
 	getValue() { return this.value }
-	setValue(val) {
+	updateValue(val) {
 		if (val === this.value)
 			return
 
-		this.value = this.onChangeTransformer(val)
+		this.value = this.onChangeTransformer(this.value, val)
 		this.notifySubscribers()
 	}
 }
@@ -42,18 +42,10 @@ class PickPipe extends AbstractPipe {
 		this.parent.subscribe(this)
         }
 	getValue() {
-		const parentVal = this.parent.getValue()
-		console.log({getValueOf:this, parentVal})
-		return parentVal?.[this.prop]
+		return this.parent.getValue()?.[this.prop]
 	}
-	setValue(val) {
-		if (val === this.getValue())
-			return
-
-		const parentVal = structuredClone(this.parent.getValue())
-		if (parentVal == null) parentVal = {}
-		parentVal[this.prop] = structuredClone(val)
-		this.parent.setValue(parentVal)
+	updateValue(val) {
+		this.parent.updateValue({ [this.prop]: val })
 	}
 }
 
@@ -81,7 +73,7 @@ class DomBinder {
 
 		const onDomRefresh = () => {
 			const value = this.element[this.elementProp]
-			this.pipe.setValue(this.serializer.deserialize(value))
+			this.pipe.updateValue(this.serializer.deserialize(value))
 		}
 		this.element.addEventListener('change', () => onDomRefresh())
 		this.#refreshDom()
@@ -89,8 +81,6 @@ class DomBinder {
 	notify() { this.#refreshDom() }
 
 	#refreshDom() {
-		const value = this.pipe.getValue()
-		console.log({value, prop: this.elementProp})
-		this.element[this.elementProp] = this.serializer.serialize(value)
+		this.element[this.elementProp] = this.serializer.serialize(this.pipe.getValue())
 	}
 }
