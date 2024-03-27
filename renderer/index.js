@@ -54,6 +54,6 @@ levels.pick('martial').bindToDom(domMartialLevel)
 levels.pick('total').bindToDom(domTotalLevel)
 
 source.bindToDom(domSummary, null, {
-	serialize: v => JSON.stringify(v),
+	serialize: v => JSON.stringify(v, null, 2),
 	deserialize: v => JSON.parse(v),
 })

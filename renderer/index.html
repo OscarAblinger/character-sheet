@@ -9,10 +9,11 @@
       rel="stylesheet"
       href="https://unpkg.com/papercss@1.9.2/dist/paper.min.css"
     />
+    <link rel="stylesheet" href="style.css" />
     <title>Example Character Sheet</title>
   </head>
   <body>
-    <div class="paper container">
+    <div class="paper container container-xl">
       <h1 id="charname"></h1>
       <p>Total Level: <span id="level"></span></p>
       <label>Magic Level:
@@ -26,8 +27,8 @@
 	      <ul><li>List is todo</li></ul>
       </div>
 
-      <div class="paper sheet">
-	<p id="summary"></p>
+      <div class="paper card">
+          <pre><code id="summary"></code></pre>
       </div>
     </div>
     <script src="observable.js"></script>
