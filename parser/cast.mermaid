@@ -1,0 +1,29 @@
+classDiagram
+    class CAST {
+        +syntactic_tokens: CASTToken[]
+        +semantic_node: SemanticNode
+
+        +rebuild_tokens()
+    }
+
+    CAST *-- CASTToken
+    class CASTToken {
+        +start_offset: i32
+        +end_offset: i32
+        +token_type: TokenType
+    }
+
+    CASTToken <|-- TextToken
+    class TextToken {
+        +text: string
+        +semantic_node: SemanticNode
+    }
+    CASTToken <|-- WhitespaceToken
+    class WhitespaceToken {
+        +formatting_information: FormattingInfo
+    }
+
+    CAST *-- SemanticNode
+    class SemanticNode {
+
+    }
