@@ -1,0 +1,3 @@
+[submodule "zparser/lib/pretty"]
+	path = zparser/lib/pretty
+	url = git@github.com:timfayz/pretty.git
