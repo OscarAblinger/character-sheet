@@ -2,11 +2,18 @@ pub mod ast;
 
 use thiserror::Error;
 
+/*
 use ast::Feature;
 use ast::AST;
 use ast::Model;
 use ast::Modifier;
 use ast::Reference;
+*/
+
+use std::rc::Rc;
+use std::cell::RefCell;
+
+use crate::cast::*;
 
 use crate::tokenizer;
 use tokenizer::validate;
@@ -16,7 +23,7 @@ use tokenizer::TokenizationIssue;
 
 #[derive(Debug)]
 pub struct ParseSuccess {
-    pub ast: AST,
+    pub cast: CAST,
     pub warnings: Vec<String>, // todo
     pub infos: Vec<String>,    // todo
 }
@@ -44,7 +51,7 @@ pub fn parse(tokens: &[Token]) -> Result<ParseSuccess, ParseFailure> {
                 .map(from_tokenization_issue)
                 .collect::<Vec<_>>(),
         }),
-        None => do_parse(tokens),
+        None => do_parse(to_cast_tokens(tokens)),
     }
 }
 
@@ -56,33 +63,65 @@ fn from_tokenization_issue(ti: &TokenizationIssue) -> ParseError {
     }
 }
 
-fn do_parse(tokens: &[Token]) -> Result<ParseSuccess, ParseFailure> {
+fn to_cast_tokens(tokens: &[Token]) -> Vec<Rc<RefCell<CASTNode>>> {
+    let mut cast_tokens: Vec<Rc<RefCell<CASTNode>>> = Vec::new();
+
+    for token in tokens {
+        cast_tokens.push(Rc::new(RefCell::new(CASTNode {
+            start_offset: token.offset,
+            end_offset: token.offset + token.token_type.get_string().len(),
+            fmt_type: match token.token_type {
+                TokenType::Whitespace(s) => {
+                    let newlines = s.chars().filter(|&c| c == '\n').count();
+                    CASTNodeFmtType::Whitespace(WhitespaceOptions {
+                        // count of spaces in s
+                        spaces: s.chars().filter(|&c| c == ' ').count(),
+
+                        newlines,
+                        min_newlines: newlines,
+                        max_newlines: newlines,
+
+                        indent_incr: 0,
+                        indent_decr: 0,
+                    })
+                },
+                t => {
+                    CASTNodeFmtType::Text(t.get_string())
+                },
+            }
+        })));
+    }
+
+    cast_tokens
+}
+
+fn do_parse(nodes: Vec<Rc<RefCell<CASTNode>>>) -> Result<ParseSuccess, ParseFailure> {
     let mut parser = Parser {
-        tokens,
+        nodes,
         position: usize::MAX,
         references: Vec::new(),
     };
     let model = parser.model()?;
     Ok(ParseSuccess {
-        ast: AST { model, references: parser.references },
+        cast: CAST { nodes, model, references: parser.references },
         infos: vec![],
         warnings: vec![],
     })
 }
 
-struct Parser<'a> {
-    tokens: &'a [Token],
+struct Parser {
+    nodes: Vec<Rc<RefCell<CASTNode>>>,
     position: usize,
-    references: Vec<Reference>,
+    references: Vec<Rc<RefCell<CASTReference>>>,
 }
 
-impl Parser<'_> {
-    fn curr(&self) -> Token {
-        self.tokens[self.position].clone()
+impl Parser {
+    fn curr(&self) -> Rc<RefCell<CASTNode>> {
+        self.nodes[self.position].clone()
     }
 
     fn curr_t(&self) -> TokenType {
-        self.curr().token_type
+        self.curr().borrow().fmt_type
     }
 
     fn next_non_ws(&mut self) -> Token {
