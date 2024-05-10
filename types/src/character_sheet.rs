@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::standard::limiters::NoLimiter;
-use crate::standard::selectors::FirstSelector;
-
 // todo: serde & serde_json
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -93,16 +90,6 @@ impl PartialEq for PropertyDefinition {
 
 impl Eq for PropertyDefinition {}
 
-impl Default for PropertyDefinition {
-    fn default() -> Self {
-        Self {
-            name: String::default(),
-            selector: Box::new(Rc::new(<dyn Selector>::default())),
-            limiter: Box::new(Rc::new(<dyn Limiter>::default())),
-        }
-    }
-}
-
 impl std::fmt::Debug for PropertyDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PropertyDefinition")
@@ -118,21 +105,9 @@ pub trait Selector: std::fmt::Debug {
     fn string_representation(&self) -> String;
 }
 
-impl dyn Selector {
-    fn default() -> FirstSelector {
-        FirstSelector {}
-    }
-}
-
 pub trait Limiter {
     fn apply_limits(&self, value: &mut StaticValueType);
     fn string_representation(&self) -> String;
-}
-
-impl dyn Limiter {
-    fn default() -> NoLimiter {
-        NoLimiter {}
-    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
