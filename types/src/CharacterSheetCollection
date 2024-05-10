@@ -1,0 +1,183 @@
+use standard::FirstSelector;
+use standard::NoLimiter;
+
+// todo: serde & serde_json
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CharacterSheetCollection {
+    pub types: Vec<TypeDefinition>,
+    pub items: Vec<Item>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TypeDefinition {
+    pub name: String,
+    pub properties: Vec<PropertyDefinition>,
+}
+
+#[derive(Clone)]
+pub struct PropertyDefinition {
+    pub name: String,
+    pub selector: Box<Rc<dyn Selector>>,
+    pub limiter: Box<Rc<dyn Limiter>>,
+}
+
+impl PartialEq for PropertyDefinition {
+    fn eq(&self, other: &Self) -> bool {
+        self.name.eq(&other.name)
+    }
+}
+
+impl Eq for PropertyDefinition {}
+
+impl Default for PropertyDefinition {
+    fn default() -> Self {
+        Self {
+            name: String::default(),
+            selector: Box::new(Rc::new(<dyn Selector>::default())),
+            limiter: Box::new(Rc::new(<dyn Limiter>::default())),
+        }
+    }
+}
+
+impl std::fmt::Debug for PropertyDefinition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PropertyDefinition")
+            .field("name", &self.name)
+            .field("selector", &self.selector.string_representation())
+            .field("limiter", &self.limiter.string_representation())
+            .finish()
+    }
+}
+
+pub trait Selector : std::fmt::Debug {
+    fn select(&self, items: Vec<StaticValueType>) -> StaticValueType;
+    fn string_representation(&self) -> String;
+}
+
+impl dyn Selector {
+    fn default() -> FirstSelector {
+        FirstSelector {}
+    }
+}
+
+pub trait Limiter {
+    fn apply_limits(&self, value: &mut StaticValueType);
+    fn string_representation(&self) -> String;
+}
+
+impl dyn Limiter {
+    fn default() -> NoLimiter {
+        NoLimiter {}
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct Item {
+    pub features: Vec<ItemFeature>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct ItemFeature {
+    pub name: String,
+    pub description: String,
+    pub base_type: String,
+    pub modifiers: Vec<ItemFeatureModifier>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct ItemFeatureModifier {
+    pub referencing: Reference,
+    pub value: CalculatedValue,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Hash)]
+pub struct Reference {
+    pub parent: Option<Box<Reference>>,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CalculatedValue {
+    StaticValue(StaticValueType),
+    FunctionCall {
+        function: String,
+        arguments: Vec<CalculatedValue>,
+    },
+}
+
+impl Default for CalculatedValue {
+    fn default() -> Self {
+        Self::StaticValue(StaticValueType::default())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum StaticValueType {
+    Number(i32),
+    Dice(DiceValue),
+}
+
+impl Default for StaticValueType {
+    fn default() -> Self {
+        Self::Number(0)
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct DiceValue {
+    pub dice: Vec<Dice>,
+    pub bonus: i32,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct Dice {
+    pub amount: u32,
+    pub sides: u32,
+    pub modifiers: Vec<DiceModifier>,
+}
+
+impl PartialOrd for Dice {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self
+            .sides
+            .cmp(&other.sides)
+            .then_with(|| self.amount.cmp(&other.amount))
+            .then_with(|| self.modifiers.len().cmp(&other.modifiers.len()))
+        {
+            std::cmp::Ordering::Equal => {
+                if self.eq(other) {
+                    Some(std::cmp::Ordering::Equal)
+                } else {
+                    None
+                }
+            }
+            o => Some(o),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DiceModifier {
+    Explode(DiceSelector),
+    Keep(DiceSelector),
+    Drop(DiceSelector),
+    Reroll(DiceSelector),
+    Count(DiceSelector),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DiceSelector {
+    /// highest x rolls of this dice set
+    Highest(u16),
+    /// lowest x rolls of this dice set
+    Lowest(u16),
+    /// all rolls this dice set with a roll higher than x
+    HigherThan(u16),
+    /// all rolls this dice set with a roll lower than x
+    LowerThan(u16),
+    /// all rolls this dice set with a roll equal to x
+    Exactly(u16),
+    /// all rolled dice (useful for e.g. count modifier)
+    All,
+}
