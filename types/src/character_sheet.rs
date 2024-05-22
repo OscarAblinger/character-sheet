@@ -1,50 +1,11 @@
-use std::collections::HashMap;
 use std::rc::Rc;
 
 // todo: serde & serde_json
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CharacterSheetCollection {
-    pub library: Library,
     pub types: Vec<TypeDefinition>,
     pub items: Vec<Item>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Library {
-    pub functions: HashMap<String, FunctionDefinition>,
-}
-
-pub type FunctionArgs = Vec<StaticValueType>;
-
-pub struct FunctionDefinition {
-    pub name: String,
-    pub function: Box<Rc<dyn Fn(FunctionArgs) -> Result<StaticValueType, CalculatorError>>>,
-}
-
-impl PartialEq for FunctionDefinition {
-    fn eq(&self, other: &Self) -> bool {
-        self.name.eq(&other.name)
-    }
-}
-
-impl Eq for FunctionDefinition {}
-
-impl std::fmt::Debug for FunctionDefinition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FunctionDefinition")
-            .field("name", &self.name)
-            .finish()
-    }
-}
-
-impl Clone for FunctionDefinition {
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            function: self.function.clone(),
-        }
-    }
 }
 
 pub struct CalculatorError {
@@ -134,6 +95,8 @@ pub struct Reference {
     pub parent: Option<Box<Reference>>,
     pub name: String,
 }
+
+pub type FunctionArgs = Vec<StaticValueType>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CalculatedValue {
