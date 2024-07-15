@@ -1,7 +1,9 @@
-// todo: serde & serde_json
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 /// A collection of types and items.
 /// The "CS" prefix is refering to the name of the library not an actual character sheet.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CSCollection {
     /// Type definitions of all properties.
@@ -21,6 +23,7 @@ impl CSCollection {
 }
 
 /// Definition of the type of a property
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PropertyDefinition {
     /// Name of the property.
@@ -33,6 +36,7 @@ pub struct PropertyDefinition {
 }
 
 /// A selector selects a given value out of a list of possible ones.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Selector {
     /// The identifier of the selector.
@@ -43,6 +47,7 @@ pub struct Selector {
     pub arguments: Vec<String>,
 }
 
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Limiter {
     /// The identifier of the limiter.
@@ -55,6 +60,7 @@ pub struct Limiter {
 
 /// As the name implies a feature set bundles a bunch of features together.
 /// In most games this may be anything from classes to races to items or even spells in some cases.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct FeatureSet {
     pub name: String,
@@ -64,6 +70,7 @@ pub struct FeatureSet {
 
 /// A feature is any actual value that a character may have.
 /// This can range from things like HP or Mana all the way to Attacks and spells.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Feature {
     pub name: String,
@@ -77,6 +84,7 @@ pub struct Feature {
 }
 
 /// A set of changes to a given property.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct FeatureModifier {
     /// The property of the character that this references.
@@ -86,6 +94,7 @@ pub struct FeatureModifier {
 }
 
 /// A set of operations that will result in a specific value.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CalculatedValue {
     /// A static value always has the same value.
@@ -101,6 +110,7 @@ impl Default for CalculatedValue {
 }
 
 /// An actual value that a property may have.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum StaticValueType {
     Number(i32),
@@ -114,6 +124,7 @@ impl Default for StaticValueType {
 }
 
 /// A script is a value that depends on some operations and usually other properties.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Script {
     // todo: specify the syntax of the script
@@ -126,6 +137,7 @@ pub struct Script {
 }
 
 /// A value that consists of a bunch of dice that should be rolled to get the actual value.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct DiceValue {
     /// The dice sets to be rolled.
@@ -135,6 +147,7 @@ pub struct DiceValue {
 }
 
 /// One set of dice with the same count of sides.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Dice {
     pub amount: u32,
@@ -171,6 +184,7 @@ impl PartialOrd for Dice {
 /// * d -> Drop
 /// * r -> Reroll
 /// * c -> Count
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DiceModifier {
     /// Only considers these die and ignores all others.
@@ -186,6 +200,7 @@ pub enum DiceModifier {
 }
 
 /// Selects a group of dice in a given dice roll.
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "camelCase", deny_unknown_fields))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DiceSelector {
     /// highest x rolls of this dice set
@@ -200,4 +215,91 @@ pub enum DiceSelector {
     Exactly(u16),
     /// all rolled dice (useful for e.g. count modifier)
     All,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        CSCollection, CalculatedValue, Dice, DiceModifier, DiceSelector, DiceValue, Feature,
+        FeatureModifier, FeatureSet, Limiter, PropertyDefinition, Script, Selector,
+        StaticValueType,
+    };
+
+    #[cfg(feature = "serde_json")]
+    const FULL_COLLECTION_JSON: &str = include_str!("../resources/tests/full_collection.json");
+
+    #[test]
+    #[cfg(feature = "serde_json")]
+    fn serde() {
+        let collection = get_full_collection();
+
+        let collection_json = serde_json::to_string_pretty(&collection).unwrap();
+        println!("{}", collection_json);
+        assert_eq!(
+            FULL_COLLECTION_JSON, collection_json,
+            "The serialized JSON does match the expected one."
+        );
+
+        let collection_deserialized = serde_json::from_str(&collection_json).unwrap();
+        assert_eq!(
+            collection, collection_deserialized,
+            "The deserialized JSON does match the original one."
+        );
+    }
+
+    fn get_full_collection() -> CSCollection {
+        return CSCollection {
+            properties: vec![PropertyDefinition {
+                name: "property1".to_string(),
+                selector: Selector {
+                    identifier: "selector1".to_string(),
+                    arguments: vec!["arg1".to_string(), "arg2".to_string()],
+                },
+                limiters: vec![Limiter {
+                    identifier: "limiter1".to_string(),
+                    arguments: vec!["arg1".to_string()],
+                }],
+            }],
+            items: vec![FeatureSet {
+                name: "feature_set1".to_string(),
+                description: "This is feature set 1.".to_string(),
+                features: vec![Feature {
+                    name: "feature1".to_string(),
+                    description: "This is feature 1 of feature set 1.".to_string(),
+                    base_type: "basic".to_string(),
+                    modifiers: vec![
+                        FeatureModifier {
+                            property: "property1".to_string(),
+                            value: CalculatedValue::StaticValue(StaticValueType::Number(1)),
+                        },
+                        FeatureModifier {
+                            property: "property2".to_string(),
+                            value: CalculatedValue::StaticValue(StaticValueType::Dice(DiceValue {
+                                dice: vec![Dice {
+                                    sides: 6,
+                                    amount: 1,
+                                    modifiers: vec![
+                                        DiceModifier::Keep(DiceSelector::All),
+                                        DiceModifier::Keep(DiceSelector::Highest(1)),
+                                        DiceModifier::Keep(DiceSelector::Lowest(1)),
+                                        DiceModifier::Reroll(DiceSelector::HigherThan(5)),
+                                        DiceModifier::Explode(DiceSelector::LowerThan(2)),
+                                        DiceModifier::Count(DiceSelector::Exactly(6)),
+                                    ],
+                                }],
+                                bonus: 5,
+                            })),
+                        },
+                        FeatureModifier {
+                            property: "property3".to_string(),
+                            value: CalculatedValue::Script(Script {
+                                script: "5 + 6".to_string(),
+                                dependencies: vec!["property1".to_string()],
+                            }),
+                        },
+                    ],
+                }],
+            }],
+        };
+    }
 }
