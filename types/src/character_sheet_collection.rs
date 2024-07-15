@@ -14,6 +14,12 @@ pub struct CSCollection {
     pub items: Vec<FeatureSet>,
 }
 
+impl CSCollection {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 /// Definition of the type of a property
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PropertyDefinition {
@@ -85,15 +91,7 @@ pub enum CalculatedValue {
     /// A static value always has the same value.
     StaticValue(StaticValueType),
     /// A script is a value that depends on some operations and usually other properties.
-    Script {
-        // todo: specify the syntax of the script
-        /// The script that specifies how the value should be calculated once all dependencies are
-        /// calculated.
-        /// May reference the dependencies, but never other properties outside of them.
-        script: String,
-        /// The list of properties that this script depends on.
-        dependencies: Vec<String>,
-    },
+    Script(Script),
 }
 
 impl Default for CalculatedValue {
@@ -113,6 +111,18 @@ impl Default for StaticValueType {
     fn default() -> Self {
         Self::Number(0)
     }
+}
+
+/// A script is a value that depends on some operations and usually other properties.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Script {
+    // todo: specify the syntax of the script
+    /// The script that specifies how the value should be calculated once all dependencies are
+    /// calculated.
+    /// May reference the dependencies, but never other properties outside of them.
+    pub script: String,
+    /// The list of properties that this script depends on.
+    pub dependencies: Vec<String>,
 }
 
 /// A value that consists of a bunch of dice that should be rolled to get the actual value.
