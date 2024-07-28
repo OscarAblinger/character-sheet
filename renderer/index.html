@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Character sheet</title>
+    <!-- using paper.css from https://www.getpapercss.com/ -->
+    <link rel="stylesheet" type="text/css" href="paper.min.css">
+    <link rel="stylesheet" type="text/css" href="custom.css">
+  </head>
+  <body>
+    <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+    <div id="character-sheet-root" class="paper container">
+        <div class="collapsible">
+            <input id="collapsible-user-input" type="checkbox" name="User input" checked>
+            <label for="collapsible-user-input">User input</label>
+            <div class="collapsible-body" id="user-input"><!-- populated by the renderer --></div>
+        </div>
+        <div class="collapsible">
+            <input id="collapsible-features" type="checkbox" name="Features" checked>
+            <label for="collapsible-features">Features</label>
+            <div class="collapsible-body child-borders" id="features"><!-- populated by the renderer --></div>
+        </div>
+    </div>
+
+    <footer>
+        This site is using the awesome <a href="https://www.getpapercss.com/">paper.css</a>.
+    </footer>
+    <script src="./example.js" type="module"></script>
+  </body>
+</html>

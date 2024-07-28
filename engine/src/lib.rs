@@ -1,3 +1,5 @@
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use types::character_sheet_collection::{
     CalculatedValue, FeatureModifier, FeatureSet, Script, StaticValueType,
@@ -7,12 +9,23 @@ pub type ResultValue = Result<StaticValueType, ValueCalculationError>;
 
 /// Value set by the user of the sheet.
 /// Aka the base values like the character's class, level, characteristics etc.
+#[cfg_attr(
+    feature = "serde",
+    derive(Deserialize, Serialize),
+    serde(rename_all = "camelCase", deny_unknown_fields)
+)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserValue {
     pub named: String,
     pub value: StaticValueType,
 }
 
 /// Errors during the calculation of a property
+#[cfg_attr(
+    feature = "serde",
+    derive(Deserialize, Serialize),
+    serde(rename_all = "camelCase", deny_unknown_fields)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueCalculationError {
     /// A cyclic dependency was found.
@@ -23,6 +36,11 @@ pub enum ValueCalculationError {
     MissingDependency(MissingDependency),
 }
 
+#[cfg_attr(
+    feature = "serde",
+    derive(Deserialize, Serialize),
+    serde(rename_all = "camelCase", deny_unknown_fields)
+)]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CycleNode {
     feature_set: String,
@@ -31,14 +49,28 @@ pub struct CycleNode {
 }
 
 /// The current values of the character sheet do not allow a calculation of any of its values.
+#[cfg_attr(
+    feature = "serde",
+    derive(Deserialize, Serialize),
+    serde(rename_all = "camelCase", deny_unknown_fields)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IllegalSheetError {}
 
 /// The data behind a character sheet.
 /// The base class of the engine.
+#[cfg_attr(
+    feature = "serde",
+    derive(Deserialize, Serialize),
+    serde(rename_all = "camelCase", deny_unknown_fields)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CharacterSheet {
-    //pub collection: &'a CSCollection,
+    /// User values are values explicitely set by the user of the sheet.
+    /// Generally speaking this includes two different use cases:
+    /// - Selections during the character creation (e.g. stat spread, level...).
+    /// - Overwrites by the user.
+    /// User values will always overwrite those set by features.
     pub user_values: HashMap<String, StaticValueType>,
     /// Active features will apply their modifications to the properties of the character.
     pub active_features: Vec<FeatureSet>,
@@ -62,17 +94,21 @@ impl CharacterSheet {
     /// them.
     pub fn find_minimum_required_user_values(&self) -> HashSet<String> {
         let mut specified_properties: HashSet<String> = HashSet::new();
-        let mut dependent_properties: HashSet<String> = HashSet::new();
+        let mut required_properties: HashSet<String> = HashSet::new();
 
         for featureset in &self.active_features {
             for feature in &featureset.features {
+                for definition in &feature.definitions {
+                    required_properties.insert(definition.name.clone());
+                }
+
                 for modifier in &feature.modifiers {
                     specified_properties.insert(modifier.property.clone());
                     match &modifier.value {
                         CalculatedValue::StaticValue(_) => {} // no dependencies
                         CalculatedValue::Script(script) => {
                             for dep in &script.dependencies {
-                                dependent_properties.insert(dep.clone());
+                                required_properties.insert(dep.clone());
                             }
                         }
                     }
@@ -82,7 +118,7 @@ impl CharacterSheet {
 
         // All properties that were specified as a dependency, but not as a feature.
         // todo: Does not account for cycles.
-        return &dependent_properties - &specified_properties;
+        return &required_properties - &specified_properties;
     }
 
     /// Calculates and returns all values.
@@ -180,17 +216,14 @@ impl CharacterSheet {
                         return AddOrCalcResult::MissingDependency(missing_dep);
                     }
 
-                    match dump(
-                        "add_or_calc:",
-                        self.add_or_calc(
-                            values,
-                            currently_calculating,
-                            calc_map,
-                            calc_map.get(dep).expect(&format!(
-                                "No calc info for dep {:?}. calc map: {:?}",
-                                dep, calc_map
-                            )),
-                        ),
+                    match self.add_or_calc(
+                        values,
+                        currently_calculating,
+                        calc_map,
+                        calc_map.get(dep).expect(&format!(
+                            "No calc info for dep {:?}. calc map: {:?}",
+                            dep, calc_map
+                        )),
                     ) {
                         AddOrCalcResult::Success => {}
                         AddOrCalcResult::MissingDependency(missing_dep) => {
@@ -272,6 +305,11 @@ impl CharacterSheet {
     }
 }
 
+#[cfg_attr(
+    feature = "serde",
+    derive(Deserialize, Serialize),
+    serde(rename_all = "camelCase", deny_unknown_fields)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum AddOrCalcResult {
     Success,
@@ -279,6 +317,11 @@ enum AddOrCalcResult {
     MissingDependency(MissingDependency),
 }
 
+#[cfg_attr(
+    feature = "serde",
+    derive(Deserialize, Serialize),
+    serde(rename_all = "camelCase", deny_unknown_fields)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MissingDependency {
     missing_dependency: String,
@@ -348,7 +391,11 @@ mod tests {
                 },
             )),
         );
-        assert_eq!(sheet.calculate_all_values(), Ok(expected_values), "Missing dependency");
+        assert_eq!(
+            sheet.calculate_all_values(),
+            Ok(expected_values),
+            "Missing dependency"
+        );
 
         let mut expected_required_user_values = HashSet::new();
         expected_required_user_values.insert("Strength".to_string());
@@ -371,7 +418,11 @@ mod tests {
         let mut expected_values: HashMap<String, ResultValue> = HashMap::new();
         expected_values.insert("MeleeAttack".to_string(), Ok(StaticValueType::Number(11)));
         expected_values.insert("Strength".to_string(), Ok(StaticValueType::Number(10)));
-        assert_eq!(sheet.calculate_all_values(), Ok(expected_values), "Once Strength is provided as user value, it can be evaluated.");
+        assert_eq!(
+            sheet.calculate_all_values(),
+            Ok(expected_values),
+            "Once Strength is provided as user value, it can be evaluated."
+        );
     }
 
     fn add_active_featureset(

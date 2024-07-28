@@ -1,0 +1,30 @@
+/* paper.css fixes */
+#character-sheet-root {
+    max-width: none;
+}
+.collapsible > input[id^="collapsible"]:checked ~ div.collapsible-body {
+    max-height: none;
+}
+
+/* custom css */
+footer {
+    text-align: center;
+}
+div#features .card {
+    margin-bottom: 1rem;
+}
+div#features .card-header > h4 {
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+div#features .card-header > h4 > fieldset.form-group {
+    margin-bottom: 0px;
+
+    display: flex;
+}
+div#features .card-header > h4 > fieldset.form-group > label.paper-switch-2 {
+    align-self: center;
+}
+div#features .card-header > h4 > fieldset.form-group > label.paper-switch-2-label {
+    flex-grow: 1;
+}

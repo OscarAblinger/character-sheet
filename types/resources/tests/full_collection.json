@@ -1,102 +1,101 @@
-{
-  "properties": [
-    {
-      "name": "property1",
-      "selector": {
-        "identifier": "selector1",
-        "arguments": [
-          "arg1",
-          "arg2"
-        ]
-      },
-      "limiters": [
-        {
-          "identifier": "limiter1",
-          "arguments": [
-            "arg1"
-          ]
-        }
-      ]
-    }
-  ],
-  "items": [
-    {
-      "name": "feature_set1",
-      "description": "This is feature set 1.",
-      "features": [
-        {
-          "name": "feature1",
-          "description": "This is feature 1 of feature set 1.",
-          "baseType": "basic",
-          "modifiers": [
-            {
-              "property": "property1",
-              "value": {
-                "staticValue": {
-                  "number": 1
-                }
-              }
+[
+  {
+    "name": "feature_set1",
+    "description": "This is feature set 1.",
+    "source": "Basic rules",
+    "features": [
+      {
+        "name": "feature1",
+        "description": "This is feature 1 of feature set 1.",
+        "baseType": "basic",
+        "definitions": [
+          {
+            "name": "property1",
+            "selector": {
+              "identifier": "selector1",
+              "arguments": [
+                "arg1",
+                "arg2"
+              ]
             },
-            {
-              "property": "property2",
-              "value": {
-                "staticValue": {
-                  "dice": {
-                    "dice": [
-                      {
-                        "amount": 1,
-                        "sides": 6,
-                        "modifiers": [
-                          {
-                            "keep": "all"
-                          },
-                          {
-                            "keep": {
-                              "highest": 1
-                            }
-                          },
-                          {
-                            "keep": {
-                              "lowest": 1
-                            }
-                          },
-                          {
-                            "reroll": {
-                              "higherThan": 5
-                            }
-                          },
-                          {
-                            "explode": {
-                              "lowerThan": 2
-                            }
-                          },
-                          {
-                            "count": {
-                              "exactly": 6
-                            }
+            "limiters": [
+              {
+                "identifier": "limiter1",
+                "arguments": [
+                  "arg1"
+                ]
+              }
+            ]
+          }
+        ],
+        "modifiers": [
+          {
+            "property": "property1",
+            "value": {
+              "staticValue": {
+                "number": 1
+              }
+            }
+          },
+          {
+            "property": "property2",
+            "value": {
+              "staticValue": {
+                "dice": {
+                  "dice": [
+                    {
+                      "amount": 1,
+                      "sides": 6,
+                      "modifiers": [
+                        {
+                          "keep": "all"
+                        },
+                        {
+                          "keep": {
+                            "highest": 1
                           }
-                        ]
-                      }
-                    ],
-                    "bonus": 5
-                  }
-                }
-              }
-            },
-            {
-              "property": "property3",
-              "value": {
-                "script": {
-                  "script": "5 + 6",
-                  "dependencies": [
-                    "property1"
-                  ]
+                        },
+                        {
+                          "keep": {
+                            "lowest": 1
+                          }
+                        },
+                        {
+                          "reroll": {
+                            "higherThan": 5
+                          }
+                        },
+                        {
+                          "explode": {
+                            "lowerThan": 2
+                          }
+                        },
+                        {
+                          "count": {
+                            "exactly": 6
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "bonus": 5
                 }
               }
             }
-          ]
-        }
-      ]
-    }
-  ]
-}
+          },
+          {
+            "property": "property3",
+            "value": {
+              "script": {
+                "script": "5 + 6",
+                "dependencies": [
+                  "property1"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
