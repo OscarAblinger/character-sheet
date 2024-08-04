@@ -6,12 +6,13 @@ use engine::CharacterSheet;
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
-/*
 #[wasm_bindgen]
 extern "C" {
-    fn alert(s: &str);
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    fn logS(s: String);
 }
-*/
 
 // global hashmap of identifiers -> CharacterSheet instances
 static mut CHARSHEETS: Option<HashMap<String, CharacterSheet>> = Option::None;

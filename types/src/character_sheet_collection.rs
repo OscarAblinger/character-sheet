@@ -178,7 +178,10 @@ pub struct DiceValue {
 )]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Dice {
-    pub amount: u32,
+    /// The amount of dice with this amount of sides.
+    /// A negative number means that the total should be substracted.
+    /// It should never be 0. Instead just remove these dice.
+    pub amount: i32,
     pub sides: u32,
     pub modifiers: Vec<DiceModifier>,
 }

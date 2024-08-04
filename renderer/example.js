@@ -31,7 +31,7 @@ function startRenderer() {
                     {
                         "name": "attributes",
                         "description": "Every player character has 4 basic attributes: strength, speed, resilience, and intelligence.",
-                        "baseType": "",
+                        "baseType": "attributes",
                         "definitions": [
                             {"name": "strength",    "selector": {"identifier": "highest", "arguments": []}, "limiters": [{"identifier": "min", "arguments": ["0"]}]},
                             {"name": "speed",       "selector": {"identifier": "highest", "arguments": []}, "limiters": [{"identifier": "min", "arguments": ["0"]}]},
@@ -43,7 +43,7 @@ function startRenderer() {
                     {
                         "name": "defense",
                         "description": "Your defense is based on your speed and resilience.",
-                        "baseType": "",
+                        "baseType": "combat_stats",
                         "definitions": [],
                         "modifiers": [
                             {"property": "defense", "value": {"script": {"script":"$speed + $resilience", "dependencies": ["speed", "resilience"]}}}
@@ -59,7 +59,7 @@ function startRenderer() {
                     {
                         "name": "gambler_attributes",
                         "description": "Gamblers have an additional basic attribute called luck.",
-                        "baseType": "class_feature",
+                        "baseType": "attributes",
                         "definitions": [
                             {"name": "luck", "selector": {"identifier": "highest", "arguments": []}, "limiters": [{"identifier": "min", "arguments": ["0"]}]}
                         ],
@@ -68,7 +68,7 @@ function startRenderer() {
                     {
                         "name": "gambler_lucky_defense",
                         "description": "A gambler's luck protects them from harm.",
-                        "baseType": "class_feature",
+                        "baseType": "combat_stats",
                         "definitions": [],
                         "modifiers": [
                             {"property": "defense", "value": {"script": {"script":"$@+$luck", "dependencies": ["luck"]}}}

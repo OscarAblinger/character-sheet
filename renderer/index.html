@@ -9,22 +9,190 @@
   </head>
   <body>
     <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
-    <div id="character-sheet-root" class="paper container">
+    <div id="auto-bind-root" class="paper container" data-cs-root>
+        <h1>Auto-bound part</h1>
         <div class="collapsible">
-            <input id="collapsible-user-input" type="checkbox" name="User input" checked>
+            <input id="collapsible-user-input-b" type="checkbox" name="User input" checked>
+            <label for="collapsible-user-input-b">User input</label>
+            <div class="collapsible-body" data-cs-bind-user-inputs="template-user-input">
+                <div>
+                    Don't forget. You can currently run <span data-cs-bind-user-input-speed-to="innerText"></span> tiles.
+                    You can at any time overwrite this here: <input data-cs-bind-user-input-speed>
+                 </div>
+            </div>
+        </div>
+        <div class="collapsible">
+            <input id="collapsible-user-input-b" type="checkbox" name="Attributes" checked>
+            <label for="collapsible-user-input-b">Attributes</label>
+            <div class="collapsible-body" data-cs-bind-filtered-feature-sets="[active==true].features[baseType==attributes].modifiers $ template-attribute"></div>
+        </div>
+        <div class="collapsible">
+            <input id="collapsible-features-b" type="checkbox" name="Features" checked>
+            <label for="collapsible-features-b">Features</label>
+            <div class="collapsible-body child-borders" data-cs-bind-feature-sets="template-feature-sets"></div>
+        </div>
+    </div>
+
+    <div id="character-sheet-root" class="paper container">
+        <h1>Generated, unbound part</h1>
+        <div class="collapsible">
+            <input id="collapsible-user-input" type="checkbox" name="User input">
             <label for="collapsible-user-input">User input</label>
             <div class="collapsible-body" id="user-input"><!-- populated by the renderer --></div>
         </div>
         <div class="collapsible">
-            <input id="collapsible-features" type="checkbox" name="Features" checked>
+            <input id="collapsible-features" type="checkbox" name="Features">
             <label for="collapsible-features">Features</label>
             <div class="collapsible-body child-borders" id="features"><!-- populated by the renderer --></div>
         </div>
     </div>
 
+    <template id="template-user-input">
+        <label data-cs-bind-name-to="#text-before">
+            <input data-cs-bind-value>
+        </label>
+    </template>
+
+    <template id="template-feature-sets">
+        <div class="card">
+            <div class="card-header">
+                <h4>
+                    <fieldset class="form-group">
+                        <label class="paper-switch-2">
+                            <input data-cs-bind-active>
+                            <span class="paper-switch-slider round"></span>
+                        </label>
+                        <label class="paper-switch-2-label" data-cs-bind-id-to="htmlFor" data-cs-bind-name-to="innerText"></label>
+                    </fieldset>
+                </h4>
+            </div>
+            <div class="card-body" data-cs-bind-features="template-feature">
+                <p class="card-text" data-cs-bind-description-to="innerText"></p>
+            </div>
+        </div>
+    </template>
+
+    <template id="template-feature">
+        <div>
+            <h5 data-cs-bind-name-to="innerText"></h5>
+            <p data-cs-bind-description-to="innerText"></p>
+            <div data-cs-bind-definitions="template-definition"></div>
+            <div data-cs-bind-modifiers="template-modifier"></div>
+        </div>
+    </template>
+
+    <template id="template-attribute">
+        <label data-cs-bind-name-to="#text-before">
+            <span class="badge" data-cs-bind-selector-string-to="innerText"></span>
+            <span data-cs-bind-limiters="template-limiter"></span>
+            <input data-cs-bind-value>
+        </label>
+    </template>
+
+    <template id="template-definition">
+        <label data-cs-bind-name-to="#text-before">
+            <span class="badge" data-cs-bind-selector-string-to="innerText"></span>
+            <span data-cs-bind-limiters="template-limiter"></span>
+            <input data-cs-bind-value>
+        </label>
+    </template>
+
+    <template id="template-limiter">
+        <span class="badge warning" data-cs-bind-string-to="innerText"></span>
+    </template>
+
+    <template id="template-modifier">
+        <label data-cs-bind-property-to="innerText">
+            <input data-cs-bind-value>
+        </label>
+    </template>
+
     <footer>
         This site is using the awesome <a href="https://www.getpapercss.com/">paper.css</a>.
     </footer>
     <script src="./example.js" type="module"></script>
+    <script type="module">
+        import init from "./engine/character_sheet_js.js";
+        import { createRendererFromJson, CharacterSheetRenderer } from "./renderer.js";
+
+        async function run() {
+            const JSON = `{
+                "userValues": {
+                    "strength": {
+                        "number": 10
+                    },
+                    "speed": {
+                        "dice": {
+                            "dice": [{"amount": 2, "sides": 4, "modifiers": []}],
+                            "bonus": 2
+                        }
+                    }
+                },
+                "activeFeatures": [
+                    {
+                        "name": "Character",
+                        "description": "Every player character has a few features.",
+                        "source": "Basic Rules",
+                        "features": [
+                            {
+                                "name": "attributes",
+                                "description": "Every player character has 4 basic attributes: strength, speed, resilience, and intelligence.",
+                                "baseType": "attributes",
+                                "definitions": [
+                                    {"name": "strength",    "selector": {"identifier": "highest", "arguments": []}, "limiters": [{"identifier": "min", "arguments": ["0"]}]},
+                                    {"name": "speed",       "selector": {"identifier": "highest", "arguments": []}, "limiters": [{"identifier": "min", "arguments": ["0"]}]},
+                                    {"name": "resilience",  "selector": {"identifier": "highest", "arguments": []}, "limiters": [{"identifier": "min", "arguments": ["0"]}]},
+                                    {"name": "intelligence", "selector": {"identifier": "highest", "arguments": []}, "limiters": [{"identifier": "min", "arguments": ["0"]}]}
+                                ],
+                                "modifiers": []
+                            },
+                            {
+                                "name": "defense",
+                                "description": "Your defense is based on your speed and resilience.",
+                                "baseType": "combat_stats",
+                                "definitions": [],
+                                "modifiers": [
+                                    {"property": "defense", "value": {"script": {"script":"$speed + $resilience", "dependencies": ["speed", "resilience"]}}}
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Gambler",
+                        "description": "Your character is a gambler. They have luck-related abilities.",
+                        "source": "Luck be a Bet",
+                        "features": [
+                            {
+                                "name": "gambler_attributes",
+                                "description": "Gamblers have an additional basic attribute called luck.",
+                                "baseType": "attributes",
+                                "definitions": [
+                                    {"name": "luck", "selector": {"identifier": "highest", "arguments": []}, "limiters": [{"identifier": "min", "arguments": ["0"]}]}
+                                ],
+                                "modifiers": []
+                            },
+                            {
+                                "name": "gambler_lucky_defense",
+                                "description": "A gambler's luck protects them from harm.",
+                                "baseType": "combat_stats",
+                                "definitions": [],
+                                "modifiers": [
+                                    {"property": "defense", "value": {"script": {"script":"$@+$luck", "dependencies": ["luck"]}}}
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "inactiveFeatures": []
+            }`
+
+            await init();
+
+            const renderer = createRendererFromJson(JSON);
+            console.log({renderer});
+            renderer.bindToDom(document.getElementById("auto-bind-root"));
+        }
+        run();
+    </script>
   </body>
 </html>

@@ -91,7 +91,7 @@ export function renderModifiers(domNode, modifiers) {
 export function renderFeatures(domNode, features) {
     for (const feature of features) {
         domNode.appendChild(
-            dom("div", ["card-section", "features"], null,
+            dom("div", null, null,
                 dom("h5", null, el => el.innerText = feature.name),
                 dom("p", null, el => el.innerText = feature.description),
                 dom("div", ["definitions"], el => renderDefinitions(el, feature.definitions)),

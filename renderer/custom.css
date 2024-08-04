@@ -1,5 +1,5 @@
 /* paper.css fixes */
-#character-sheet-root {
+#character-sheet-root, #auto-bind-root {
     max-width: none;
 }
 .collapsible > input[id^="collapsible"]:checked ~ div.collapsible-body {
@@ -28,3 +28,4 @@ div#features .card-header > h4 > fieldset.form-group > label.paper-switch-2 {
 div#features .card-header > h4 > fieldset.form-group > label.paper-switch-2-label {
     flex-grow: 1;
 }
+
