@@ -12,9 +12,10 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 wasm-bindgen = "0.2.84"
-engine = { path = "../engine", features = ["serde_json"]}
+engine = { path = "../engine", features = ["serde_json", "schemars"]}
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = { version = "1.0.120" }
+schemars = { version = "0.8.21" }
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires

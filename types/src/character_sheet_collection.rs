@@ -1,3 +1,5 @@
+#[cfg(feature = "schemars")]
+use schemars::JsonSchema;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +10,7 @@ use serde::{Deserialize, Serialize};
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct FeatureSet {
     pub name: String,
@@ -23,6 +26,7 @@ pub struct FeatureSet {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Feature {
     pub name: String,
@@ -45,6 +49,7 @@ pub struct Feature {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct PropertyDefinition {
     /// Name of the property.
@@ -62,6 +67,7 @@ pub struct PropertyDefinition {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Selector {
     /// The identifier of the selector.
@@ -77,6 +83,7 @@ pub struct Selector {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Limiter {
     /// The identifier of the limiter.
@@ -93,6 +100,7 @@ pub struct Limiter {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct FeatureModifier {
     /// The property of the character that this references.
@@ -107,6 +115,7 @@ pub struct FeatureModifier {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CalculatedValue {
     /// A static value always has the same value.
@@ -127,6 +136,7 @@ impl Default for CalculatedValue {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum StaticValueType {
     Number(i32),
@@ -145,6 +155,7 @@ impl Default for StaticValueType {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Script {
     // todo: specify the syntax of the script
@@ -162,6 +173,7 @@ pub struct Script {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct DiceValue {
     /// The dice sets to be rolled.
@@ -176,6 +188,7 @@ pub struct DiceValue {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Dice {
     /// The amount of dice with this amount of sides.
@@ -220,6 +233,7 @@ impl PartialOrd for Dice {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DiceModifier {
     /// Only considers these die and ignores all others.
@@ -240,6 +254,7 @@ pub enum DiceModifier {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DiceSelector {
     /// highest x rolls of this dice set
@@ -273,11 +288,13 @@ mod tests {
 
         let collection_json = serde_json::to_string_pretty(&feature_collection).unwrap();
         assert_eq!(
-            FULL_COLLECTION_JSON.replace("\r", "").trim(), collection_json.replace("\r", "").trim(),
+            FULL_COLLECTION_JSON.replace("\r", "").trim(),
+            collection_json.replace("\r", "").trim(),
             "The serialized JSON does match the expected one."
         );
 
-        let collection_deserialized: Vec<FeatureSet> = serde_json::from_str(&collection_json).unwrap();
+        let collection_deserialized: Vec<FeatureSet> =
+            serde_json::from_str(&collection_json).unwrap();
         assert_eq!(
             feature_collection, collection_deserialized,
             "The deserialized JSON does match the original one."

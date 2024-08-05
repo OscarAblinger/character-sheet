@@ -3,6 +3,7 @@ mod utils;
 use std::collections::HashMap;
 
 use engine::CharacterSheet;
+use schemars::schema_for;
 use utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
@@ -36,6 +37,11 @@ fn set_charsheet(name: &str, new_charsheet: CharacterSheet) {
 #[wasm_bindgen(start)]
 pub fn start() {
     set_panic_hook();
+}
+
+#[wasm_bindgen(js_name = "getCharacterSheetJsonSchema")]
+pub fn get_character_sheet_json_schema() -> String {
+    return serde_json::to_string(&schema_for!(CharacterSheet)).unwrap();
 }
 
 fn as_string<T: serde::ser::Serialize>(value: &T) -> String {

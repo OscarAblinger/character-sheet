@@ -8,26 +8,6 @@ import { createFromJson, findMinimumRequiredUserValues, getAsJson, setUserValueF
 //      for objects or object arrays: use template either in value or data-cs-to
 //      everything else: error
 // - data-cs-bind-<name>-to: binds value to specified property of the DOM node
-//
-    //
-    // === Probably ignore after this. It's too complicated
-    // == instead let users do it themselves
-    // 
-// selectors:
-// If the value of either of the ones above contains one or more '$', then all but the last are selectors.
-// Selectors can be provided to the binder in order to select specific elements.
-// These selectors are a simple path string:
-//      @<name>: references a named path string
-//      .<name>: selects a given element.
-//      [<path>(==|===|<|<=|>|>=)<value>]: compares the property with the value and only takes the element
-//          if the condition evaluates to true.
-//      
-// All of these arrays can be applied on an array and will then be flatMapped to all elements in the array.
-//
-// formatters:
-// If the value of either of the ones above contains one or more '|', then all but the last are formatters.
-// Formatters can be provided to the binder in order to change the values before applying them.
-// Note that when using them, the values are checked for changes before the formatter is applied.
 
 const knownNames = {};
 
@@ -51,13 +31,6 @@ export function createRendererFromJson(json) {
     createFromJson(name, json)
     return new CharacterSheetRenderer(name)
 }
-
-// naming scheme:
-// - data-cs-bind-<name>: 
-//      for value on inputs: two way binding
-//      for objects or object arrays: use template either in value or data-cs-to
-//      everything else: error
-// - data-cs-bind-<name>-to: one-way binds value to specified property of the DOM node
 
 function value2text(value) {
     return value.number ?? dice2text(value.dice);

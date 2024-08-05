@@ -1,3 +1,5 @@
+#[cfg(feature = "schemars")]
+use schemars::JsonSchema;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -14,6 +16,7 @@ pub type ResultValue = Result<StaticValueType, ValueCalculationError>;
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserValue {
     pub named: String,
@@ -26,6 +29,7 @@ pub struct UserValue {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueCalculationError {
     /// A cyclic dependency was found.
@@ -41,6 +45,7 @@ pub enum ValueCalculationError {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CycleNode {
     feature_set: String,
@@ -54,6 +59,7 @@ pub struct CycleNode {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IllegalSheetError {}
 
@@ -64,6 +70,7 @@ pub enum IllegalSheetError {}
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CharacterSheet {
     /// User values are values explicitely set by the user of the sheet.
@@ -310,6 +317,7 @@ impl CharacterSheet {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum AddOrCalcResult {
     Success,
@@ -322,6 +330,7 @@ enum AddOrCalcResult {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MissingDependency {
     missing_dependency: String,
@@ -331,6 +340,7 @@ pub struct MissingDependency {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 struct CalcInfo<'a> {
     pub feature_set: &'a str,
     pub feature: &'a str,
