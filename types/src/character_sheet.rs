@@ -1,5 +1,11 @@
+use std::cmp::Ordering;
+use std::collections::HashSet;
+use std::ops::{Add, Div, Mul, Sub};
+
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::de::Visitor;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// As the name implies a feature set bundles a bunch of features together.
 /// In most games this may be anything from classes to races to items or even spells in some cases.
@@ -112,7 +118,7 @@ pub enum CalculatedValue {
     /// A static value always has the same value.
     StaticValue(StaticValueType),
     /// A script is a value that depends on some operations and usually other properties.
-    Script(Script),
+    CalculationValue(Calculation),
 }
 
 impl Default for CalculatedValue {
@@ -127,7 +133,7 @@ impl Default for CalculatedValue {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum StaticValueType {
     Number(i32),
     Dice(DiceValue),
@@ -139,6 +145,223 @@ impl Default for StaticValueType {
     }
 }
 
+fn dice_with_func<F>(template: &Dice, amount1: i32, amount2: i32, merge_function: F) -> Dice
+where
+    F: Fn(i32, i32) -> i32,
+{
+    return Dice {
+        amount: merge_function(amount1, amount2),
+        sides: template.sides,
+        modifiers: template.modifiers.clone(),
+    };
+}
+
+fn merge_dice<F>(first: Vec<Dice>, second: Vec<Dice>, merge_function: F) -> Vec<Dice>
+where
+    F: Fn(i32, i32) -> i32,
+{
+    let mut sorted_first = first.clone();
+    sorted_first.sort();
+    let mut sorted_second = second.clone();
+    sorted_second.sort();
+
+    let mut idx_first = 0;
+    let mut idx_second = 0;
+
+    let mut result = vec![];
+    while idx_first < first.len() || idx_second < second.len() {
+        match (first.get(idx_first), second.get(idx_second)) {
+            (Some(a), Some(b)) if a.sides == b.sides && a.modifiers == b.modifiers => {
+                idx_first += 1;
+                idx_second += 1;
+                result.push(dice_with_func(a, a.amount, b.amount, &merge_function));
+            },
+            (Some(a), Some(b)) if a < b => {
+                idx_first += 1;
+                result.push(dice_with_func(a, a.amount, 0, &merge_function));
+            },
+            // at this point we know that a >= b
+            (Some(_), Some(b)) => {
+                idx_second += 1;
+                result.push(dice_with_func(b, 0, b.amount, &merge_function));
+            },
+            (Some(a), None) => {
+                idx_first += 1;
+                result.push(dice_with_func(a, a.amount, 0, &merge_function));
+            },
+            (None, Some(b)) => {
+                idx_second += 1;
+                result.push(dice_with_func(b, 0, b.amount, &merge_function));
+            },
+            (None, None) => break, // should never happen, but if it does, breaking the loop is
+                                   // correct
+        }
+    }
+    result.retain(|a| a.amount != 0);
+    return result;
+}
+
+impl Add for StaticValueType {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (StaticValueType::Number(a), StaticValueType::Number(b)) => {
+                return StaticValueType::Number(a + b)
+            }
+            (StaticValueType::Number(n), StaticValueType::Dice(d))
+            | (StaticValueType::Dice(d), StaticValueType::Number(n)) => {
+                return StaticValueType::Dice(DiceValue {
+                    dice: d.dice,
+                    bonus: d.bonus + n,
+                });
+            }
+            (StaticValueType::Dice(a), StaticValueType::Dice(b)) => {
+                let dice = merge_dice(a.dice, b.dice, |a, b| a + b);
+                if dice.len() == 0 {
+                    return StaticValueType::Number(a.bonus + b.bonus);
+                } else {
+                    return StaticValueType::Dice(DiceValue {
+                        dice,
+                        bonus: a.bonus + b.bonus,
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl Sub for StaticValueType {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (StaticValueType::Number(a), StaticValueType::Number(b)) => {
+                return StaticValueType::Number(a - b)
+            }
+            (StaticValueType::Number(n), StaticValueType::Dice(d)) => {
+                return StaticValueType::Dice(DiceValue {
+                    dice: d.dice,
+                    bonus: n - d.bonus,
+                });
+            }
+            (StaticValueType::Dice(d), StaticValueType::Number(n)) => {
+                return StaticValueType::Dice(DiceValue {
+                    dice: d.dice,
+                    bonus: d.bonus - n,
+                });
+            }
+            (StaticValueType::Dice(a), StaticValueType::Dice(b)) => {
+                let dice = merge_dice(a.dice, b.dice, |a, b| a - b);
+                if dice.len() == 0 {
+                    return StaticValueType::Number(a.bonus - b.bonus);
+                } else {
+                    return StaticValueType::Dice(DiceValue {
+                        dice,
+                        bonus: a.bonus - b.bonus,
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl Mul for StaticValueType {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (StaticValueType::Number(a), StaticValueType::Number(b)) => {
+                return StaticValueType::Number(a * b)
+            }
+            (StaticValueType::Number(n), StaticValueType::Dice(d))
+            | (StaticValueType::Dice(d), StaticValueType::Number(n)) => {
+                let dice: Vec<Dice> = d
+                    .dice
+                    .iter()
+                    .cloned()
+                    .map(|mut d| {
+                        d.amount *= n;
+                        d
+                    })
+                    .filter(|d| d.amount != 0)
+                    .collect();
+                if dice.len() == 0 {
+                    return StaticValueType::Number(d.bonus * n);
+                } else {
+                    return StaticValueType::Dice(DiceValue {
+                        dice,
+                        bonus: d.bonus * n,
+                    });
+                }
+            }
+            (StaticValueType::Dice(a), StaticValueType::Dice(b)) => {
+                let dice = merge_dice(a.dice, b.dice, |a, b| a * b);
+                if dice.len() == 0 {
+                    return StaticValueType::Number(a.bonus * b.bonus);
+                } else {
+                    return StaticValueType::Dice(DiceValue {
+                        dice,
+                        bonus: a.bonus * b.bonus,
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl Div for StaticValueType {
+    type Output = Option<Self>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (StaticValueType::Number(a), StaticValueType::Number(b)) => {
+                if b == 0 {
+                    return None;
+                } else {
+                    return Some(StaticValueType::Number(a / b));
+                }
+            }
+            (StaticValueType::Number(n), StaticValueType::Dice(d)) => {
+                if d.bonus == 0 {
+                    return None;
+                } else {
+                    return Some(StaticValueType::Dice(DiceValue {
+                        dice: d.dice,
+                        bonus: n / d.bonus,
+                    }));
+                }
+            }
+            (StaticValueType::Dice(d), StaticValueType::Number(n)) => {
+                if n == 0 {
+                    return None;
+                } else {
+                    return Some(StaticValueType::Dice(DiceValue {
+                        dice: d.dice,
+                        bonus: d.bonus / n,
+                    }));
+                }
+            }
+            (StaticValueType::Dice(a), StaticValueType::Dice(b)) => {
+                let side_a: HashSet<u32> = a.dice.iter().map(|d| d.sides).collect();
+                if b.bonus == 0 || b.dice.iter().any(|d| d.amount == 0 || !side_a.contains(&d.sides)) {
+                    return None;
+                } else {
+                    let dice = merge_dice(a.dice, b.dice, |a, b| a / b);
+                    if dice.len() == 0 {
+                        return Some(StaticValueType::Number(a.bonus / b.bonus));
+                    } else {
+                        return Some(StaticValueType::Dice(DiceValue {
+                            dice,
+                            bonus: a.bonus / b.bonus,
+                        }));
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// A script is a value that depends on some operations and usually other properties.
 #[cfg_attr(
     feature = "serde",
@@ -146,14 +369,170 @@ impl Default for StaticValueType {
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Script {
-    // todo: specify the syntax of the script
-    /// The script that specifies how the value should be calculated once all dependencies are
-    /// calculated.
-    /// May reference the dependencies, but never other properties outside of them.
-    pub script: String,
+pub struct Calculation {
     /// The list of properties that this script depends on.
     pub dependencies: Vec<String>,
+    /// A stack-based, postfix description of the calculation that should be done.
+    pub operations: Vec<CalculationOperation>,
+}
+
+/// Individual calculation operations.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum CalculationOperation {
+    /// An invalid value.
+    /// Most operations will return another invalid value if provided this argument.
+    Invalid(String) = 0,
+
+    /// A static number.
+    Integer(i32) = 10,
+    /// Loads the value of the nth dependency.
+    Dependency(u32) = 15,
+
+    /// An 1-arg op that already has the number of sides and takes the number of dice as argument.
+    Dice(u32) = 20,
+    // An 2-arg op that takes the number of dice as 1st argument, and the sides as 2nd argument.
+    Dice2 = 21,
+
+    // 2-arg op
+    Add = 30,
+    // 2-arg op
+    Substract = 31,
+    // 2-arg op
+    Multiply = 32,
+    // 2-arg op.
+    Divide = 33,
+
+    // An x-arg op that calls the function specified by the string.
+    // The first argument is the number of other arguments. Then arguments of that amount are
+    // loaded with rest rest filled with Invalid values.
+    // So e.g. vec![Integer(2), Integer(4), Integer(2), FuncX("pow")] assuming an implementation of
+    // pow similar to (a, b) => a^b would evaluate to Integer(16).
+    FuncX(String) = 50,
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for CalculationOperation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            CalculationOperation::Invalid(v) => {
+                return serializer.serialize_str(&format!("err: {}", v))
+            }
+            CalculationOperation::Integer(v) => return serializer.serialize_i32(*v),
+            CalculationOperation::Dependency(v) => {
+                return serializer.serialize_str(&format!("dep_{}", v))
+            }
+            CalculationOperation::Dice(v) => {
+                return serializer.serialize_str(&format!("dice_{}", v))
+            }
+            CalculationOperation::Dice2 => return serializer.serialize_str("dice2"),
+            CalculationOperation::Add => return serializer.serialize_str("+"),
+            CalculationOperation::Substract => return serializer.serialize_str("-"),
+            CalculationOperation::Multiply => return serializer.serialize_str("*"),
+            CalculationOperation::Divide => return serializer.serialize_str("/"),
+            CalculationOperation::FuncX(v) => {
+                return serializer.serialize_str(&format!("func_{}", v))
+            }
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for CalculationOperation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(CalculationOperationVisitor)
+    }
+}
+
+#[cfg(feature = "serde")]
+struct CalculationOperationVisitor;
+
+#[cfg(feature = "serde")]
+impl<'de> Visitor<'de> for CalculationOperationVisitor {
+    type Value = CalculationOperation;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        return formatter.write_str("an CalculationOperation");
+    }
+
+    fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        return Ok(CalculationOperation::Integer(v));
+    }
+
+    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        return i32::try_from(v)
+            .map_err(|_| {
+                E::invalid_type(
+                    serde::de::Unexpected::Signed(v),
+                    &"an signed number that fits in 32 bits",
+                )
+            })
+            .and_then(|i32v| self.visit_i32(i32v));
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        return i32::try_from(v)
+            .map_err(|_| {
+                E::invalid_type(
+                    serde::de::Unexpected::Unsigned(v),
+                    &"an signed number that fits in 32 bits",
+                )
+            })
+            .and_then(|i32v| self.visit_i32(i32v));
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        match v {
+            s if s.starts_with("err: ") => {
+                return Ok(CalculationOperation::Invalid(
+                    s["err: ".len()..].to_string(),
+                ))
+            }
+            s if s.starts_with("dep_") => {
+                return rest_as_u32(v, "dep_".len()).map(|v| CalculationOperation::Dependency(v))
+            }
+            s if s.starts_with("dice_") => {
+                return rest_as_u32(v, "dice_".len()).map(|v| CalculationOperation::Dice(v))
+            }
+            "dice2" => return Ok(CalculationOperation::Dice2),
+            "+" => return Ok(CalculationOperation::Add),
+            "-" => return Ok(CalculationOperation::Substract),
+            "*" => return Ok(CalculationOperation::Multiply),
+            "/" => return Ok(CalculationOperation::Divide),
+            s if s.starts_with("func_") => {
+                return Ok(CalculationOperation::FuncX(s["func_".len()..].to_string()))
+            }
+            s => return Err(E::unknown_variant(s, &["any CalculationOperation"])),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+fn rest_as_u32<E>(str: &str, offset: usize) -> Result<u32, E>
+where
+    E: serde::de::Error,
+{
+    return str[offset..]
+        .parse::<u32>()
+        .map_err(|_| E::custom(format!("argument of '{}' is not a valid i32", str)));
 }
 
 /// A value that consists of a bunch of dice that should be rolled to get the actual value.
@@ -162,11 +541,11 @@ pub struct Script {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct DiceValue {
     /// The dice sets to be rolled.
     pub dice: Vec<Dice>,
-    /// A static bonus to the result of the roll.
+    /// A stareeauieasult of the roll.
     pub bonus: i32,
 }
 
@@ -182,26 +561,37 @@ pub struct Dice {
     /// A negative number means that the total should be substracted.
     /// It should never be 0. Instead just remove these dice.
     pub amount: i32,
+    /// The sides that each individual die has.
     pub sides: u32,
+    /// Modifiers that should be applied to the dice when rolled.
     pub modifiers: Vec<DiceModifier>,
 }
 
-impl PartialOrd for Dice {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self
+impl Ord for Dice {
+    fn cmp(&self, other: &Self) -> Ordering {
+        return self
             .sides
             .cmp(&other.sides)
             .then_with(|| self.amount.cmp(&other.amount))
-            .then_with(|| self.modifiers.len().cmp(&other.modifiers.len()))
-        {
-            std::cmp::Ordering::Equal => {
-                if self.eq(other) {
-                    Some(std::cmp::Ordering::Equal)
-                } else {
-                    None
-                }
+            .then_with(|| self.modifiers.cmp(&other.modifiers));
+    }
+}
+
+impl PartialOrd for Dice {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let sides = self.sides.partial_cmp(&other.sides);
+        let amount = self.amount.partial_cmp(&other.amount);
+        let modifiers = self.modifiers.partial_cmp(&other.modifiers);
+
+        match (sides, amount, modifiers) {
+            (Some(sides_ord), Some(amount_ord), Some(modifiers_ord)) => {
+                return Some(
+                    sides_ord
+                        .then_with(|| amount_ord)
+                        .then_with(|| modifiers_ord),
+                )
             }
-            o => Some(o),
+            (_, _, _) => return None,
         }
     }
 }
@@ -220,7 +610,7 @@ impl PartialOrd for Dice {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DiceModifier {
     /// Only considers these die and ignores all others.
     Keep(DiceSelector),
@@ -240,7 +630,7 @@ pub enum DiceModifier {
     derive(Deserialize, Serialize),
     serde(rename_all = "camelCase", deny_unknown_fields)
 )]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DiceSelector {
     /// highest x rolls of this dice set
     Highest(u16),
@@ -259,8 +649,9 @@ pub enum DiceSelector {
 #[cfg(test)]
 mod tests {
     use super::{
-        CalculatedValue, Dice, DiceModifier, DiceSelector, DiceValue, Feature, FeatureModifier,
-        FeatureSet, Limiter, PropertyDefinition, Script, Selector, StaticValueType,
+        CalculatedValue, Calculation, CalculationOperation, Dice, DiceModifier, DiceSelector,
+        DiceValue, Feature, FeatureModifier, FeatureSet, Limiter, PropertyDefinition, Selector,
+        StaticValueType,
     };
 
     #[cfg(feature = "serde_json")]
@@ -272,12 +663,15 @@ mod tests {
         let feature_collection = get_example_features();
 
         let collection_json = serde_json::to_string_pretty(&feature_collection).unwrap();
+
         assert_eq!(
-            FULL_COLLECTION_JSON.replace("\r", "").trim(), collection_json.replace("\r", "").trim(),
+            FULL_COLLECTION_JSON.replace("\r", "").trim(),
+            collection_json.replace("\r", "").trim(),
             "The serialized JSON does match the expected one."
         );
 
-        let collection_deserialized: Vec<FeatureSet> = serde_json::from_str(&collection_json).unwrap();
+        let collection_deserialized: Vec<FeatureSet> =
+            serde_json::from_str(&collection_json).unwrap();
         assert_eq!(
             feature_collection, collection_deserialized,
             "The deserialized JSON does match the original one."
@@ -329,9 +723,16 @@ mod tests {
                     },
                     FeatureModifier {
                         property: "property3".to_string(),
-                        value: CalculatedValue::Script(Script {
-                            script: "5 + 6".to_string(),
-                            dependencies: vec!["property1".to_string()],
+                        value: CalculatedValue::CalculationValue(Calculation {
+                            dependencies: vec!["property1".to_string(), "property2".to_string()],
+                            operations: vec![
+                                CalculationOperation::Dependency(0),
+                                CalculationOperation::Integer(2),
+                                CalculationOperation::Add,
+                                CalculationOperation::Dependency(1),
+                                CalculationOperation::Integer(1),
+                                CalculationOperation::FuncX("max".to_string()),
+                            ],
                         }),
                     },
                 ],

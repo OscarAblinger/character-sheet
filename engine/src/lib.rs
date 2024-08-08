@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use types::character_sheet::{
-    CalculatedValue, FeatureModifier, FeatureSet, Script, StaticValueType,
+    CalculatedValue, FeatureModifier, FeatureSet, Calculation, StaticValueType,
 };
 
 pub type ResultValue = Result<StaticValueType, ValueCalculationError>;
@@ -293,7 +293,7 @@ impl CharacterSheet {
 
     fn evaluate_script(
         &self,
-        script: &Script,
+        script: &Calculation,
         _values: &HashMap<String, ResultValue>,
     ) -> ResultValue {
         // todo: proper parsing
@@ -347,7 +347,7 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use types::character_sheet::{
-        CSCollection, CalculatedValue, Feature, FeatureModifier, FeatureSet, Script,
+        CSCollection, CalculatedValue, Feature, FeatureModifier, FeatureSet, Calculation,
         StaticValueType,
     };
 
@@ -370,7 +370,7 @@ mod tests {
                     base_type: "base_rules".to_string(),
                     modifiers: vec![FeatureModifier {
                         property: "MeleeAttack".to_string(),
-                        value: CalculatedValue::Script(Script {
+                        value: CalculatedValue::Script(Calculation {
                             script: "11".to_string(), // todo: make it 1 + strength
                             dependencies: vec!["Strength".to_string()],
                         }),
