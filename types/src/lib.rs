@@ -1,1 +1,1 @@
-pub mod character_sheet_collection;
+pub mod character_sheet;

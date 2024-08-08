@@ -1,7 +1,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use types::character_sheet_collection::{
+use types::character_sheet::{
     CalculatedValue, FeatureModifier, FeatureSet, Script, StaticValueType,
 };
 
@@ -346,7 +346,7 @@ fn dump<T: std::fmt::Debug>(str: &str, val: T) -> T {
 mod tests {
     use std::collections::{HashMap, HashSet};
 
-    use types::character_sheet_collection::{
+    use types::character_sheet::{
         CSCollection, CalculatedValue, Feature, FeatureModifier, FeatureSet, Script,
         StaticValueType,
     };
