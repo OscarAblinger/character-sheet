@@ -2,11 +2,10 @@
   "name": "character-sheet-renderer",
   "version": "0.1.0",
   "description": "The renderer for character sheets.",
-  "main": "index.js",
+  "main": "renderer.js",
   "author": "Oscar Ablinger <dev.ablinger@gmail.com>",
   "scripts": {
-      "prestart": "sh ./scripts/prepare-wasm.sh",
-      "start": "npm exec http-server ."
+      "build": "sh ./scripts/prepare-wasm.sh"
   },
   "dependencies": {
       "charsheet": "file:../jsbinding/pkg"

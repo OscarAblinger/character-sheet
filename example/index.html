@@ -1,0 +1,156 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Character sheet</title>
+    <!-- using paper.css from https://www.getpapercss.com/ -->
+    <link rel="stylesheet" type="text/css" href="paper.min.css" />
+    <link rel="stylesheet" type="text/css" href="custom.css" />
+  </head>
+  <body>
+    <noscript
+      >This page contains webassembly and javascript content, please enable
+      javascript in your browser.</noscript
+    >
+    <div id="auto-bind-root" class="paper container" data-cs-root>
+      <h1>Auto-bound part</h1>
+      <div class="collapsible">
+        <input
+          id="collapsible-user-input-b"
+          type="checkbox"
+          name="User input"
+          checked
+        />
+        <label for="collapsible-user-input-b">User input</label>
+        <div
+          class="collapsible-body"
+          data-cs-bind-user-inputs="template-user-input"
+        >
+          <div>
+            Don't forget. You can currently run
+            <span data-cs-bind-user-input-speed-to="innerText"></span> tiles.
+            You can at any time overwrite this here:
+            <input data-cs-bind-user-input-speed />
+          </div>
+        </div>
+      </div>
+      <div class="collapsible">
+        <input
+          id="collapsible-user-input-b"
+          type="checkbox"
+          name="Attributes"
+          checked
+        />
+        <label for="collapsible-user-input-b">Attributes</label>
+        <div
+          class="collapsible-body"
+          data-cs-bind-filtered-feature-sets="[active==true].features[baseType==attributes].modifiers $ template-attribute"
+        ></div>
+      </div>
+      <div class="collapsible">
+        <input
+          id="collapsible-features-b"
+          type="checkbox"
+          name="Features"
+          checked
+        />
+        <label for="collapsible-features-b">Features</label>
+        <div
+          class="collapsible-body child-borders"
+          data-cs-bind-feature-sets="template-feature-sets"
+        ></div>
+      </div>
+    </div>
+
+    <div id="character-sheet-root" class="paper container">
+      <h1>Generated, unbound part</h1>
+      <div class="collapsible">
+        <input id="collapsible-user-input" type="checkbox" name="User input" />
+        <label for="collapsible-user-input">User input</label>
+        <div class="collapsible-body" id="user-input">
+          <!-- populated by the renderer -->
+        </div>
+      </div>
+      <div class="collapsible">
+        <input id="collapsible-features" type="checkbox" name="Features" />
+        <label for="collapsible-features">Features</label>
+        <div class="collapsible-body child-borders" id="features">
+          <!-- populated by the renderer -->
+        </div>
+      </div>
+    </div>
+
+    <template id="template-user-input">
+      <label data-cs-bind-name-to="#text-before">
+        <input data-cs-bind-value />
+      </label>
+    </template>
+
+    <template id="template-feature-sets">
+      <div class="card">
+        <div class="card-header">
+          <h4>
+            <fieldset class="form-group">
+              <label class="paper-switch-2">
+                <input data-cs-bind-active />
+                <span class="paper-switch-slider round"></span>
+              </label>
+              <label
+                class="paper-switch-2-label"
+                data-cs-bind-id-to="htmlFor"
+                data-cs-bind-name-to="innerText"
+              ></label>
+            </fieldset>
+          </h4>
+        </div>
+        <div class="card-body" data-cs-bind-features="template-feature">
+          <p class="card-text" data-cs-bind-description-to="innerText"></p>
+        </div>
+      </div>
+    </template>
+
+    <template id="template-feature">
+      <div>
+        <h5 data-cs-bind-name-to="innerText"></h5>
+        <p data-cs-bind-description-to="innerText"></p>
+        <div data-cs-bind-definitions="template-definition"></div>
+        <div data-cs-bind-modifiers="template-modifier"></div>
+      </div>
+    </template>
+
+    <template id="template-attribute">
+      <label data-cs-bind-name-to="#text-before">
+        <span class="badge" data-cs-bind-selector-string-to="innerText"></span>
+        <span data-cs-bind-limiters="template-limiter"></span>
+        <input data-cs-bind-value />
+      </label>
+    </template>
+
+    <template id="template-definition">
+      <label data-cs-bind-name-to="#text-before">
+        <span class="badge" data-cs-bind-selector-string-to="innerText"></span>
+        <span data-cs-bind-limiters="template-limiter"></span>
+        <input data-cs-bind-value />
+      </label>
+    </template>
+
+    <template id="template-limiter">
+      <span class="badge warning" data-cs-bind-string-to="innerText"></span>
+    </template>
+
+    <template id="template-modifier">
+      <label data-cs-bind-property-to="innerText">
+        <input data-cs-bind-value />
+      </label>
+    </template>
+
+    <footer>
+      This site is using the awesome
+      <a href="https://www.getpapercss.com/">paper.css</a>.
+    </footer>
+    <!--<script src="./example2.js" type="module"></script>
+    <script src="./example.js" type="module"></script>-->
+    <script src="./index.js" type="module"></script>
+    -->
+  </body>
+</html>

@@ -1,16 +1,12 @@
-import init, { createFromJson, findMinimumRequiredUserValues, getAsJson } from './engine/character_sheet_js.js';
-import { render } from './example_paper_renderer.js'
+import "./custom.css";
 
-async function runEngine() {
-    await init();
+import init, {
+  getCharacterSheetJsonSchema,
+} from "character-sheet-renderer/engine/character_sheet_js.js";
+import { createRendererFromJson } from "character-sheet-renderer";
 
-    startRenderer();
-}
-
-runEngine();
-
-function startRenderer() {
-    const json = `{
+async function run() {
+  const EXAMPLE_JSON = `{
         "userValues": {
             "strength": {
                 "number": 10
@@ -79,27 +75,14 @@ function startRenderer() {
         ],
         "inactiveFeatures": []
     }`;
-    const cs = createFromJson("test", json);
-    if (cs !== true) {
-        console.error(cs)
-        return;
-    }
-    const charSheet = JSON.parse(getAsJson("test"));
 
-    const allUserValues = {};
-    for (const uv of findMinimumRequiredUserValues("test")) {
-        allUserValues[uv] = charSheet.userValues[uv] ?? { dice: { dice:[], bonus: 0} };
-    }
+  await init();
 
-    const featureSets = [];
-    charSheet.activeFeatures.forEach(f => featureSets.push([true, f]));
-    charSheet.inactiveFeatures.forEach(f => featureSets.push([false, f]));
+  const jsonSchema = getCharacterSheetJsonSchema();
+  console.log(JSON.stringify(JSON.parse(jsonSchema), null, 2));
 
-    render({
-        userInputDomNode: document.getElementById("user-input"),
-        featureSetsDomNode: document.getElementById("features"),
-    }, {
-        userInput: allUserValues,
-        featureSets,
-    });
+  const renderer = createRendererFromJson(EXAMPLE_JSON);
+  console.log({ renderer });
+  renderer.bindToDom(document.getElementById("auto-bind-root"));
 }
+run();
