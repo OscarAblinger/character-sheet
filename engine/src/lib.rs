@@ -2,7 +2,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use types::character_sheet::{
-    CalculatedValue, FeatureModifier, FeatureSet, Calculation, StaticValueType,
+    CalculatedValue, Calculation, CalculationOperation, Dice, DiceValue, FeatureModifier,
+    FeatureSet, StaticValueType,
 };
 
 pub type ResultValue = Result<StaticValueType, ValueCalculationError>;
@@ -34,6 +35,15 @@ pub enum ValueCalculationError {
     ScriptError(String),
     /// A property had no value or feature reference, but is required as a dependency.
     MissingDependency(MissingDependency),
+}
+
+impl std::fmt::Display for ValueCalculationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self ;
+                return Ok(());
+            }
+        }
+    }
 }
 
 #[cfg_attr(
@@ -106,8 +116,8 @@ impl CharacterSheet {
                     specified_properties.insert(modifier.property.clone());
                     match &modifier.value {
                         CalculatedValue::StaticValue(_) => {} // no dependencies
-                        CalculatedValue::Script(script) => {
-                            for dep in &script.dependencies {
+                        CalculatedValue::CalculationValue(calculation) => {
+                            for dep in &calculation.dependencies {
                                 required_properties.insert(dep.clone());
                             }
                         }
@@ -147,7 +157,7 @@ impl CharacterSheet {
 
         let mut currently_calculating: HashSet<String> = HashSet::new();
         for (_, calc_info) in &calc_map {
-            self.add_or_calc(
+            self.calculate_values(
                 &mut values,
                 &mut currently_calculating,
                 &calc_map,
@@ -167,7 +177,7 @@ impl CharacterSheet {
         }
     }
 
-    fn add_or_calc<'a>(
+    fn calculate_values<'a>(
         &self,
         values: &mut HashMap<String, ResultValue>,
         currently_calculating: &mut HashSet<String>,
@@ -192,9 +202,9 @@ impl CharacterSheet {
                 values.insert(curr_property.clone(), Ok(value.clone()));
                 return AddOrCalcResult::Success;
             }
-            CalculatedValue::Script(script) => {
+            CalculatedValue::CalculationValue(calculation) => {
                 currently_calculating.insert(curr_property.clone());
-                for dep in &script.dependencies {
+                for dep in &calculation.dependencies {
                     if values.contains_key(dep) {
                         continue;
                     }
@@ -216,7 +226,7 @@ impl CharacterSheet {
                         return AddOrCalcResult::MissingDependency(missing_dep);
                     }
 
-                    match self.add_or_calc(
+                    match self.calculate_values(
                         values,
                         currently_calculating,
                         calc_map,
@@ -249,7 +259,7 @@ impl CharacterSheet {
                                     );
                                 }
                                 None => {
-                                    panic!("Value not calculated after call to add_or_calc with result Cycle.
+                                    panic!("Value not calculated after call to calculate_values with result Cycle.
                                            Property resolution that claims cycle: {:?}
                                            Currently calculating: {:?}
                                            Calculation map: {:?}
@@ -285,24 +295,191 @@ impl CharacterSheet {
                 }
                 currently_calculating.remove(curr_property);
 
-                values.insert(curr_property.clone(), self.evaluate_script(script, values));
+                values.insert(
+                    curr_property.clone(),
+                    self.evaluate_calculation(calculation, values),
+                );
                 return AddOrCalcResult::Success;
             }
         }
     }
 
-    fn evaluate_script(
+    fn evaluate_calculation(
         &self,
-        script: &Calculation,
-        _values: &HashMap<String, ResultValue>,
+        calc: &Calculation,
+        known_values: &HashMap<String, ResultValue>,
     ) -> ResultValue {
-        // todo: proper parsing
-        // for now we only parse integers
-        return match script.script.parse::<i32>() {
-            Ok(val) => Ok(StaticValueType::Number(val)),
-            Err(err) => Err(ValueCalculationError::ScriptError(err.to_string())),
-        };
+        let deps: Vec<&ResultValue> = calc.dependencies.iter()
+            .map(|dep| {
+                return known_values.get(dep)
+                    .expect(&format!("Missing value for dependency during calculation (should've been caught earlier): {:?}", dep));
+            })
+            .collect();
+
+        let mut stack: Vec<ResultValue> = vec![];
+        for (idx, op) in calc.operations.iter().enumerate() {
+            match op {
+                CalculationOperation::Invalid(err) => {
+                    stack.push(Err(ValueCalculationError::ScriptError(err.clone())))
+                }
+                CalculationOperation::Integer(val) => stack.push(Ok(StaticValueType::Number(*val))),
+                CalculationOperation::Dependency(idx) => {
+                    stack.push(deps.get(*idx as usize)
+                        .map(|r| (*r).clone())
+                        .unwrap_or_else(|| Err(ValueCalculationError::ScriptError(format!("Requested dependency {} out of bounds (dependencies are {:?}).", idx, calc.dependencies)))));
+                }
+                CalculationOperation::Dice(d) => {
+                    let result = try_to_number(try_pop(&mut stack, idx))
+                        .map(|amount| 
+                            StaticValueType::Dice(DiceValue {
+                                dice: vec![Dice {
+                                    amount: amount,
+                                    sides: *d,
+                                    modifiers: vec![],
+                                }],
+                                bonus: 0,
+                            })
+                        );
+                    stack.push(result);
+                },
+                CalculationOperation::Dice2 => {
+                    match try_to_number2(try_pop2(&mut stack, idx)) {
+                        (Err(e), _) | (_, Err(e)) =>
+                            stack.push(Err(e)),
+                        (Ok(sides), Ok(amount)) => {
+                            stack.push(Ok(StaticValueType::Dice(DiceValue {
+                                dice: vec![Dice {
+                                    amount: amount,
+                                    sides: sides as u32,
+                                    modifiers: vec![],
+                                }],
+                                bonus: 0,
+                            })));
+                        }
+                    }
+                },
+                CalculationOperation::Add => {
+                    match try_pop2(&mut stack, idx) {
+                        (Err(e), _) | (_, Err(e)) =>
+                            stack.push(Err(e)),
+                        (Ok(first), Ok(second)) => {
+                            stack.push(Ok(first + second));
+                        }
+                    }
+                },
+                CalculationOperation::Substract => {
+                    match try_pop2(&mut stack, idx) {
+                        (Err(e), _) | (_, Err(e)) =>
+                            stack.push(Err(e)),
+                        (Ok(first), Ok(second)) => {
+                            stack.push(Ok(first - second));
+                        }
+                    }
+                },
+                CalculationOperation::Multiply => {
+                    match try_pop2(&mut stack, idx) {
+                        (Err(e), _) | (_, Err(e)) =>
+                            stack.push(Err(e)),
+                        (Ok(first), Ok(second)) => {
+                            stack.push(Ok(first * second));
+                        }
+                    }
+                },
+                CalculationOperation::Divide => {
+                    match try_pop2(&mut stack, idx) {
+                        (Err(e), _) | (_, Err(e)) =>
+                            stack.push(Err(e)),
+                        (Ok(first), Ok(second)) => {
+                            match first / second {
+                                Some(value) => stack.push(Ok(value)),
+                                None => stack.push(Err(ValueCalculationError::ScriptError("Division by zero".to_string()))),
+                            }
+                        }
+                    }
+                },
+                CalculationOperation::FuncX(name) => {
+                    match try_to_number(try_pop(&mut stack, idx)) {
+                        Err(e) => stack.push(Err(e)),
+                        Ok(argc) => {
+                            let mut args = vec![];
+                            for _ in 1..argc {
+                                match try_pop(&mut stack, idx) {
+                                    Err(e) => {
+                                        stack.push(Err(e));
+                                        break;
+                                    },
+                                    Ok(value) => args.push(value),
+                                }
+                            }
+                            // check if we actually got all args.
+                            // otherwise we already reported and error and have nothing left to do.
+                            if args.len() == argc as usize {
+                                args.reverse();
+
+                                stack.push(call_function(name, args));
+                            }
+                        },
+                    }
+                },
+            }
+        }
+
+        if stack.len() > 1 {
+            return Err(ValueCalculationError::ScriptError(format!("Stack overfull: {} elements left at the end of program execution.", stack.len())));
+        } else if stack.len() == 0 {
+            return Err(ValueCalculationError::ScriptError("Stack underfull: No elements left at the end of program execution.".to_string()));
+        } else {
+            return stack.remove(0);
+        }
     }
+}
+
+fn call_function(name: &str, args: Vec<StaticValueType>) -> Result<StaticValueType, ValueCalculationError> {
+    match name {
+        "max" => args.iter().max().map(|v| v.clone()).ok_or(ValueCalculationError::ScriptError("No arguments for max()".to_string())),
+        _ => Err(ValueCalculationError::ScriptError(format!("Unknown function {}", name))),
+    }
+}
+
+fn try_pop(stack: &mut Vec<ResultValue>, idx: usize) -> ResultValue {
+    return stack.pop()
+        .unwrap_or_else(|| Err(ValueCalculationError::ScriptError(format!("StackUnderflow: trying to pop an empty stack at operation with index {}.", idx))));
+}
+
+fn try_to_number(result_val: ResultValue) -> Result<i32, ValueCalculationError> {
+    return result_val
+        .and_then(|value| {
+            match value {
+                StaticValueType::Number(number) => Ok(number),
+                StaticValueType::Dice(_) => Err(ValueCalculationError::ScriptError("Expected a number on the stack, but found dice instead.".to_string())),
+            }
+        });
+}
+
+fn try_pop2(stack: &mut Vec<ResultValue>, idx: usize) -> (ResultValue, ResultValue) {
+    let first = stack.pop()
+        .unwrap_or_else(|| Err(ValueCalculationError::ScriptError(format!("StackUnderflow: trying to pop an empty stack at operation with index {}.", idx))));
+    let second = stack.pop()
+        .unwrap_or_else(|| Err(ValueCalculationError::ScriptError(format!("StackUnderflow: trying to pop an empty stack at operation with index {}.", idx))));
+    return (first, second);
+}
+
+fn try_to_number2(result_vals: (ResultValue, ResultValue)) -> (Result<i32, ValueCalculationError>, Result<i32, ValueCalculationError>) {
+    let first = result_vals.0
+        .and_then(|value| {
+            match value {
+                StaticValueType::Number(number) => Ok(number),
+                StaticValueType::Dice(_) => Err(ValueCalculationError::ScriptError("Expected a number on the stack, but found dice instead.".to_string())),
+            }
+        });
+    let second = result_vals.1
+        .and_then(|value| {
+            match value {
+                StaticValueType::Number(number) => Ok(number),
+                StaticValueType::Dice(_) => Err(ValueCalculationError::ScriptError("Expected a number on the stack, but found dice instead.".to_string())),
+            }
+        });
+    return (first, second);
 }
 
 #[cfg_attr(
@@ -347,7 +524,7 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use types::character_sheet::{
-        CSCollection, CalculatedValue, Feature, FeatureModifier, FeatureSet, Calculation,
+        CalculatedValue, Calculation, CalculationOperation, Feature, FeatureModifier, FeatureSet,
         StaticValueType,
     };
 
@@ -355,29 +532,31 @@ mod tests {
 
     #[test]
     fn complex_test() {
-        let mut collection = CSCollection::new();
+        //let mut collection = CSCollection::new();
         let mut sheet = super::CharacterSheet::new();
 
-        add_active_featureset(
-            &mut collection,
-            &mut sheet,
-            FeatureSet {
-                name: "base".to_string(),
-                description: "The base rules".to_string(),
-                features: vec![Feature {
-                    name: "Attributes".to_string(),
-                    description: "Your character has basic attributes.".to_string(),
-                    base_type: "base_rules".to_string(),
-                    modifiers: vec![FeatureModifier {
-                        property: "MeleeAttack".to_string(),
-                        value: CalculatedValue::Script(Calculation {
-                            script: "11".to_string(), // todo: make it 1 + strength
-                            dependencies: vec!["Strength".to_string()],
-                        }),
-                    }],
+        sheet.active_features.push(FeatureSet {
+            name: "base".to_string(),
+            description: "The base rules".to_string(),
+            source: "BasicRules".to_string(),
+            features: vec![Feature {
+                name: "Attributes".to_string(),
+                description: "Your character has basic attributes.".to_string(),
+                base_type: "base_rules".to_string(),
+                definitions: vec![],
+                modifiers: vec![FeatureModifier {
+                    property: "MeleeAttack".to_string(),
+                    value: CalculatedValue::CalculationValue(Calculation {
+                        dependencies: vec!["Strength".to_string()],
+                        operations: vec![
+                            CalculationOperation::Dependency(0),
+                            CalculationOperation::Integer(1),
+                            CalculationOperation::Add,
+                        ],
+                    }),
                 }],
-            },
-        );
+            }],
+        });
 
         let mut expected_values: HashMap<String, ResultValue> = HashMap::new();
         expected_values.insert(
@@ -423,14 +602,5 @@ mod tests {
             Ok(expected_values),
             "Once Strength is provided as user value, it can be evaluated."
         );
-    }
-
-    fn add_active_featureset(
-        collection: &mut CSCollection,
-        sheet: &mut crate::CharacterSheet,
-        fs: FeatureSet,
-    ) {
-        collection.items.push(fs.clone());
-        sheet.active_features.push(fs);
     }
 }
